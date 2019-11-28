@@ -13,4 +13,5 @@ state-space realization of the transfer function matrix at arbitrary
 points. The toolbox is compatible with Python 2.7+ as well ass Python 3.0+.
   
 The implementation is contained in file python/fsid.py. A the python script python/examples_fsid.py 
-illustrates the use of the toolbox. 
+illustrates the use of the toolbox. Brief documentation is provided in python/fsid_v1.pdf.
+
