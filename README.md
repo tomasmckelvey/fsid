@@ -10,7 +10,7 @@ samples corresponding to arbitrary points in the complex plane.
 To reduce the computational complexity for the estimation
 algorithms, an accelerated algorithm is provided which evaluate the
 state-space realization of the transfer function matrix at arbitrary
-points. The toolbox is compatible with Python 2.7+ as well ass Python 3.0+.
+points. The toolbox is compatible with Python 2.7+ as well as Python 3.0+.
   
 The implementation is contained in file python/fsid.py. A the python script python/examples_fsid.py 
 illustrates the use of the toolbox. Brief documentation is provided in python/fsid_v1.pdf.
