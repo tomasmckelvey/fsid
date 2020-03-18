@@ -9,6 +9,52 @@ Created on Sat Dec  9 08:00:56 2017
 import numpy as np
 from scipy import linalg
 
+def lrm(u, y, n=2 , Nw=None):
+    us = np.shape(u)
+    if np.size(us) == 1:
+        m = 1
+        u = np.reshape(u,(us[0],1))
+    else:
+        m = us[1]
+    Nu = us[0]
+    ys = np.shape(y)
+    if np.size(ys) == 1:
+        p = 1
+        y = np.reshape(y,(ys[0],1))
+    else:
+        p = ys[1]
+    Ny = ys[0]            
+    if Nu <> Ny:
+        print("lsim: Incorrect number of matrices in sys.")
+        return False  
+    if Nw == None:
+        Nw = 2*np.int(np.ceil(((m+2)*n+1.0)/2))
+    #print("Nw ",Nw)
+    if Nw <np.int(np.ceil(((m+2)*n+1.0)/2)):
+        print("Error: Nw too small.")
+        return False
+    yf = np.fft.fft(y, axis=0)
+    uf = np.fft.fft(u, axis=0)
+    ff = np.zeros((Ny, p, m), dtype=complex)
+    R = np.vander(np.arange(-Nw,Nw+1),n+1)
+    yfe = np.vstack((yf[-Nw:,:], yf, yf[:Nw] ))
+    ufe = np.vstack((uf[-Nw:,:], uf, uf[:Nw] ))
+    iset = np.arange(-Nw,Nw+1)
+    for i in np.arange(Ny):
+        for pidx in range(p):
+            # A(z) yf = B(z) uf + T(z)
+            yy = yfe[Nw+i+iset,pidx]
+ #           uu = ufe[Nw+i+iset,0]
+            RR = np.hstack((R, np.matmul(np.diag(-yy), R[:,:n])  ))
+            for midx in np.flip(range(m),0):
+                RR = np.hstack((RR, np.matmul(np.diag(ufe[Nw+i+iset, midx]), R)))
+            lsans = linalg.lstsq(RR, yy)
+            ht = lsans[0]
+            ht = np.flip(ht,0)
+            ff[i,pidx,:] = ht[:(n+1)*m:(n+1)] 
+    #print(np.shape(RR))
+    return ff
+            
 
 def ls_estim_cd(ffdata, z, a, b, dtype='float', estimd=True):
     """
@@ -916,7 +962,7 @@ def lsim(sys, u, x0=0, dtype='float'):
     y : array_like
         the resulting output sequence of size (N,p)   """
         
-    nn = np.shape(sys)[0]
+    nn = len(sys)
     if nn == 3:
         a, b, c = sys
         p, nc = np.shape(c)
@@ -1427,6 +1473,32 @@ if __name__ == "__main__":
         print('Unit test "fdsid complex" passed')
         return True
     
+    def unit_test_lrm():
+        N = 500
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            lam = linalg.eig(A)[0]
+            rho = np.max( np.abs(lam)) 
+            ## Here we create a random stable DT system
+            A = A/rho/1.01
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.random.randn(p, m)
+            fset = np.arange(0, N, dtype='float')/N
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            u = np.random.randn(N, m)
+            y = lsim((A, B, C, D), u, dtype='float')
+            ff = lrm(u,y)
+            err = linalg.norm(fd-ff)/linalg.norm(fd)
+            if err > 1e-4:
+                print('Unit test "lrm2" failed')
+                return False        
+        print('Unit test "lrm2" passed')
+        return True
+
+    
 # Run the unit tests
 
 
@@ -1444,7 +1516,8 @@ if __name__ == "__main__":
         and unit_test_ffsid()
         and unit_test_ffsid_complex()
         and unit_test_bilinear()
-        and unit_test_fconv()):
+        and unit_test_fconv()
+        and unit_test_lrm()):
         print("All unit tests passed")
             
     
