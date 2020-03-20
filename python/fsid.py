@@ -467,7 +467,7 @@ def gffsid(z, ffdata, n, q, dtype='float', estimd=True):
     return a, be, ce, de, s
 
 
-def fdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, CT=False, T=1):
+def fdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, CT=False, T=1, W=np.empty(0)):
     """    
     Estimate a DT state-space model from I/O frequency data
     
@@ -527,33 +527,36 @@ def fdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, CT=False, T=1
     ud = fddata[2]
     if CT:
         estTrans=False
-        ad, bd, cd, dd, xt, s  = fdsid((cf2df(w,T), yd, ud), n, q, estTrans=False, dtype=dtype, estimd=True, CT=False, T=T)
+        ad, bd, cd, dd, xt, s  = fdsid((cf2df(w,T), yd, ud), n, q, estTrans=False, dtype=dtype, estimd=True, CT=False, T=T, w=w)
         a, b, c, d = bilinear_d2c((ad, bd, cd, dd), T)
         if not estimd:
-            b, d, resid = fdestim_bd(1j*w, yd, ud, a, c, estTrans, dtype, estimd)
-            c, d, resid = fdestim_cd(1j*w, yd, ud, a, b, 0, estTrans, dtype, estimd)
-            b, d, resid = fdestim_bd(1j*w, yd, ud, a, c, estTrans, dtype, estimd)
-            c, d, resid = fdestim_cd(1j*w, yd, ud, a, b, 0, estTrans, dtype, estimd)
+            b, d, resid = fdestim_bd(1j*w, yd, ud, a, c, estTrans, dtype, estimd, w=W)
+            c, d, resid = fdestim_cd(1j*w, yd, ud, a, b, 0, estTrans, dtype, estimd, w=W)
+            b, d, resid = fdestim_bd(1j*w, yd, ud, a, c, estTrans, dtype, estimd, w=W)
+            c, d, resid = fdestim_cd(1j*w, yd, ud, a, b, 0, estTrans, dtype, estimd, w=W )
             xt = np.zeros((n, 1), dtype)
         return a, b, c, d, xt, s
 
-    return gfdsid((np.exp(1j*w), yd, ud), n, q, estTrans=estTrans, dtype=dtype, estimd=estimd)
+    return gfdsid((np.exp(1j*w), yd, ud), n, q, estTrans=estTrans, dtype=dtype, estimd=estimd, w=W)
 
 
-def gfdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True):
+def gfdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, w=np.empty(0) ):
     """    
     Estimate a state-space model from I/O frequency data
-def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
     
     Determines the (a,b,c,d,xt) parametrers such that 
-     sum_i || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]] ||^2_F
+     sum_i || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]] ||^2_w[i,:,:]
      is minimized 
     If estrTrans=False the following problem is solved
-     sum_i ||y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*b * u[i, :] ||^2_F
+     sum_i ||y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*b * u[i, :] ||^2_w[i,:,:]
      is minimized 
+
+    The weighted norm  || x ||^2_w is defined as  || w * x ||^2 where w is a square matrix such that w*w^H 
+    is a positive definite matrix.  
+    If the noise on y[i,:].T is a zero mean rv with covariance r[i,:,:] a BLUE estimator will be obtained if 
+    w[i,:,:] is selected as linalg.cholesky(linalg.inv(r[i,:,:]])).T.conj()
     
 
-    
     Parameters
     ==========
     fddata : tuple
@@ -574,8 +577,9 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
         if dtype = 'complex' a complex valued solution is returned.
     estimd : boolean, optional
         if set to False no d matrix is esimated and a zero d matrix is returned
-
-        
+    w: matrix like, optional
+        w[i,:,:] is the weighting matrix for data sample i, See above. 
+    
     Returns
     =======
     a  : matrix_like
@@ -612,14 +616,19 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
         return False
     y = np.empty([p*q, nw], dtype='complex')
     u = np.empty([me*q, nw], dtype='complex')
+    wf = np.ones((nw,1))
+    if w.size>0:
+        for widx in range(nw):
+            wf[widx] = np.trace(w[widx,:,:])
     for widx in range(nw):
-        y[:p, widx] = yd[widx, :]
-        u[:me, widx] = ude[widx, :]
+        y[:p, widx] = wf[widx]*yd[widx, :]
+        u[:me, widx] = wf[widx]*ude[widx, :]
         zx = z[widx]
         for qidx in range(q)[1:]:
             y[qidx*p:(qidx+1)*p, widx] = zx*yd[widx, :]
             u[qidx*me:(qidx+1)*me, widx] = zx*ude[widx, :]
             zx *= z[widx]
+            
     if dtype == 'float':
         hu = np.concatenate((np.real(u), np.imag(u)), 1)
         hy = np.concatenate((np.real(y), np.imag(y)), 1)
@@ -637,15 +646,15 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
     lsres = linalg.lstsq(lh, rh, overwrite_a=True, overwrite_b=True)
     a = lsres[0]
     if estTrans:
-        b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd)
-        c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd)
-        b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd)
-        c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd)
+        b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
+        c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd, w)
+        b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
+        c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd, w)
     else:   
-        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd)
-        c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd)
-        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd)
-        c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd)
+        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd), w
+        c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd, w)
+        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
+        c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd, w)
         xt = np.zeros((n, 1), dtype)
     return a, b, c, d, xt, s
 
@@ -683,7 +692,7 @@ def ltifd(a, b, u, z, noWarning=False):
         return fkern
 
 
-def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True):
+def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True, w = np.empty(0)):
     """Estimate c and d matrices given z, yd, ud and a, b, and (optionally xt) matrices
     
     Calulates the c and d matrices for a state-space representation of a rational function 
@@ -692,16 +701,22 @@ def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True
     evaluated at complex value z[i]. It solves 
 
     if estimd=True and estTrans=True    
-    min_{c,d} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])*[ud[i,:]; z[i]]  - yd[i,:] |^2_F
+    min_{c,d} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])*[ud[i,:]; z[i]]  - yd[i,:] |^2_w[i,:,:]
 
     if estimd=False and estTrans=True    
-    min_{c} sum_i|| (c*inv(z[i]*I-a)*[b xt])*[ud[i,:]; z[i]]  - yd[i,:] |^2_F
+    min_{c} sum_i|| (c*inv(z[i]*I-a)*[b xt])*[ud[i,:]; z[i]]  - yd[i,:] |^2_w[i,:,:]
 
     if estimd=True and estTrans=False    
-    min_{c,d} sum_i || (d+ c*inv(z[i]*I-a)*b)*ud[i,:]  - yd[i,:] |^2_F
+    min_{c,d} sum_i || (d+ c*inv(z[i]*I-a)*b)*ud[i,:]  - yd[i,:] |^2_w[i,:,:]
 
     if estimd=False and estTrans=False    
-    min_{c} sum_i|| (c*inv(z[i]*I-a)*b)*ud[i,:]  - yd[i,:] |^2_F
+    min_{c} sum_i|| (c*inv(z[i]*I-a)*b)*ud[i,:]  - yd[i,:] |^2_w[i,:,:]
+    
+    The weighted norm  || x ||^2_w is defined as  || w * x ||^2 where w is a square matrix such that w*w^H 
+    is a positive definite matrix.  
+    If the noise on y[i,:].T is a zero mean rv with covariance r[i,:,:] a BLUE estimator will be obtained if 
+    w[i,:,:] is selected as linalg.cholesky(linalg.inv(r[i,:,:]])).T.conj()
+
 
     if dtype='float' a real valued solution is calulated. if dtype='complex' 
     the solution is complex valued
@@ -724,7 +739,9 @@ def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True
         data type of model either 'float' or 'complex'
     estimd : boolean, optional
         if set to False no d matrix is esimated and a zero d matrix is returned
-      
+      w: matrix like, optional
+        w[i,:,:] is the weighting matrix for data sample i, See above. 
+    
     Returns 
     -------
     
@@ -737,33 +754,59 @@ def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True
     p = np.shape(yd)[1]
     m = np.shape(ud)[1]
     n = np.shape(a)[0]
-    nw = np.size(z, 0)
+    nz = np.size(z, 0)
     if estTrans == True:
-        ude = np.concatenate((ud, np.array(z).reshape(nw, 1)), 1)
+        ude = np.concatenate((ud, np.array(z).reshape(nz, 1)), 1)
         be = np.concatenate((b, xt.reshape(n, 1)), 1)
     else:
         ude = ud
         be = b
     fkern = ltifd(a, be, ude, z)
     if estimd:
-        r = np.empty((n+m, nw), dtype='complex')
+        r = np.empty((n+m, nz), dtype='complex')
         r[:n, :] = fkern
         r[n:, :] = np.transpose(ud)
     else:
-        r = fkern
-        
-    if dtype == 'float':
-        rh = np.concatenate([np.real(r), np.imag(r)], 1)
-        lh = np.concatenate([np.real(yd), np.imag(yd)], 0)
+        r = fkern            
+    if w.size>0:
+        nr = np.size(r,0)
+        rw = np.empty((p*nz, nr*p), dtype='complex')
+        ydw = np.empty((p*nz), dtype='complex')
+        for zidx in range(nz): #Vectorize data and apply pre-whitening filter
+            ydw[p*zidx:p*(zidx+1)] = np.matmul(w[zidx,:,:], yd[zidx,:])
+            rw[p*zidx:p*(zidx+1),:] = np.kron(r[:,zidx].T, w[zidx,:,:])
+            
+        if dtype == 'float':
+            lh = np.concatenate([np.real(ydw), np.imag(ydw)], 0)
+            rh = np.concatenate([np.real(rw), np.imag(rw)], 0)
+        else:
+            lh = ydw
+            rh = rw
+        lsres = linalg.lstsq(rh, lh)
+        vecCD = lsres[0]
+        c = np.reshape(vecCD[:n*p], (p, n), order='F')
+        if estimd:
+            return c, np.reshape(vecCD[n*p:], (p, m), order='F'), lsres[1]
+        else:
+            return c , np.zeros((p, m), dtype), lsres[1] # Return c and d and residuals    
     else:
-        lh = yd
-        rh = r
-    lsres = linalg.lstsq(rh.T, lh)
-    cd = lsres[0].T
-    if estimd:
-        return cd[:, :n], cd[:, n:], lsres[1] # Return c and d and residuals
-    else:
-        return cd, np.zeros((p, m), dtype), lsres[1] # Return c and d and residuals
+        if dtype == 'float':
+            rh = np.concatenate([np.real(r), np.imag(r)], 1)
+            lh = np.concatenate([np.real(yd), np.imag(yd)], 0)
+        else:
+            lh = yd
+            rh = r
+        lsres = linalg.lstsq(rh.T, lh)
+        cd = lsres[0].T
+        if estimd:
+            return cd[:, :n], cd[:, n:], lsres[1] # Return c and d and residuals
+        else:
+            return cd, np.zeros((p, m), dtype), lsres[1] # Return c and d and residuals
+
+        if estimd:
+            return cd[:, :n], cd[:, n:], lsres[1] # Return c and d and residuals
+        else:
+            return cd, np.zeros((p, m), dtype), lsres[1] # Return c and d and residuals
         
 def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True, w = np.empty(0)):
     """Estimate b and d (and optionally xt) matrices given z, yd, ud and a, c matrices
@@ -788,7 +831,7 @@ def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True, w = 
 
     The weighted norm  || x ||^2_w is defined as  || w * x ||^2 where w is a square matrix such that w*w^H 
     is a positive definite matrix.  
-    If the noise on y[i,:] is zero mean with covaraince r[i,:,:] a BLUE estimator will be obtained if 
+    If the noise on y[i,:].T is zero mean rv with covariance r[i,:,:] a BLUE estimator will be obtained if 
     w[i,:,:] is selected as linalg.cholesky(linalg.inv(r[i,:,:]])).T.conj()
 
     if dtype='float' a real valued solution is calulated (default). if dtype='complex' 
@@ -831,7 +874,7 @@ def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True, w = 
     if w.size>0:
         ydw = np.empty((nz,p),dtype='complex')
         for zidx in range(nz):
-            ydw[zidx,:] = np.matmul(w[zidx,:,:],yd[zidx,:])
+            ydw[zidx,:] = np.matmul(w[zidx,:,:], yd[zidx,:])
     else:
         ydw = yd
     if estTrans == True:
@@ -843,7 +886,6 @@ def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True, w = 
         me = m
 
     fkern = ltifr(a.T, c.T, z).T
-
     if estimd:        
         r = np.empty([nz*p, me*n+m*p], dtype='complex') #room for B xt and D  
         if w.size>0:
@@ -1073,6 +1115,19 @@ def df2cf(wd,T):
     """ Calculates the bilinear transformation frequency mapping D->C for frequency vector wd """
     return 2*np.tan(wd/2)/T
 
+def vec(a):
+    """ Vectorize a matrix  
+    
+    Input
+    =====
+    a : matrix (ndarray)
+    
+    Returns
+    =======
+        A vector with all columns in a concatenated to one long vector
+    """    
+    return np.reshape(a,np.size(a), order='F')
+    
 if __name__ == "__main__":
 
 # Below is unit test code
@@ -1341,6 +1396,45 @@ if __name__ == "__main__":
                 return False        
         print('Unit test "fdestim_cd" passed')
         return True
+
+    def unit_test_fdestim_cd_w():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset:
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.random.randn(p, m)
+            W = np.empty((N*m,p,p));                        
+            for nidx in range(N*m):
+                W[nidx,:,:] = np.random.randn(p,p)
+            fset = np.arange(0, N, dtype='float')/N
+            w = 2*np.pi*fset
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            zn = np.exp(1j*wn)
+            Ce, De, resid = fdestim_cd(zn, Y, U, A, B, w=W)
+            fde = fresp(z, A, B, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "fdestim_cd_w" failed')
+                return False        
+            C = np.random.randn(p, n)+1j*np.random.randn(p, n)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            zn = np.exp(1j*wn)
+            Ce, De, resid = fdestim_cd(zn, Y, U, A, B, dtype='complex', w=W)
+            fde = fresp(z, A, B, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "fdestim_cd_w" failed')
+                return False        
+
+        print('Unit test "fdestim_cd_w" passed')
+        return True
     
     
     def unit_test_ltifr_slow():
@@ -1577,6 +1671,7 @@ if __name__ == "__main__":
     if (unit_test_fdestim_bd()
         and unit_test_fdestim_bd_w()
         and unit_test_fdestim_cd() 
+        and unit_test_fdestim_cd_w() 
         and unit_test_fresp() 
         and unit_test_fresp_def()
         and unit_test_ls_estim_bd() 
