@@ -625,8 +625,8 @@ def gfdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, w=np.empty(0
         u[:me, widx] = wf[widx]*ude[widx, :]
         zx = z[widx]
         for qidx in range(q)[1:]:
-            y[qidx*p:(qidx+1)*p, widx] = zx*yd[widx, :]
-            u[qidx*me:(qidx+1)*me, widx] = zx*ude[widx, :]
+            y[qidx*p:(qidx+1)*p, widx] = wf[widx]*zx*yd[widx, :]
+            u[qidx*me:(qidx+1)*me, widx] = wf[widx]*zx*ude[widx, :]
             zx *= z[widx]
             
     if dtype == 'float':
@@ -1603,6 +1603,16 @@ if __name__ == "__main__":
             if err > 1e-8:
                 print('Unit test "fdsid" failed')
                 return False        
+            W = np.random.randn(N,p,p)
+            for idx in range(N):
+                W[idx,:,:] = np.eye(p)
+            Ae, Be, Ce, De, xt, s =  fdsid(fddata, n, 2*n, 
+                                                estTrans=True, dtype='float', W=W)
+            fde = fresp(z, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            if err > 1e-8:
+                print('Unit test "fdsid with weighting" failed')
+                return False        
         print('Unit test "fdsid" passed')
         return True
 
@@ -1634,9 +1644,9 @@ if __name__ == "__main__":
             fde = fresp(z, Ae, Be, Ce, De)
             err = linalg.norm(fd-fde)/linalg.norm(fd)
             if err > 1e-8:
-                print('Unit test "fdsid cmplx" failed')
+                print('Unit test "fdsid_cmplx" failed')
                 return False        
-        print('Unit test "fdsid complex" passed')
+        print('Unit test "fdsid_complex" passed')
         return True
     
     def unit_test_lrm():
