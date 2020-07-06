@@ -1,11 +1,11 @@
 # fsid - Frequency Domain Subspace Based Identification
 FSID is an open source toolbox, implemented in the Python programming language. 
-The toolbox provides scripts which estimates linear multi-input multi-output 
+The toolbox provides scripts which estimate linear multi-input multi-output 
 state-space models from sample data using frequency-domain subspace algorithms. 
 Algorithms which estimate models based on samples of the transfer function matrix 
 as well as frequency domain input and output vectors are provided. The
 algorithms can be used for discrete-time models, continuous-time
-models as well as for approximation of rational matrices from
+models as well as for approximation of rational matrices functions from
 samples corresponding to arbitrary points in the complex plane.
 To reduce the computational complexity for the estimation
 algorithms, an accelerated algorithm is provided which evaluate the
