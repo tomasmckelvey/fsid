@@ -1,6 +1,7 @@
 module fsid
 
-using LinearAlgebra, FFTW
+#using LinearAlgebra, FFTW
+using LinearAlgebra
 
 include("math.jl")
 include("estimate_c.jl")

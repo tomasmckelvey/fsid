@@ -1,33 +1,38 @@
 """
-    estimate_cd(ffdata, z, a, b; type = Real, estimd = true)
+    function estimate_cd(ffdata, z, a, b; type = Real, estimd = true)
+    function estimate_cd(
+      ffdata::AbstractArray{<:Number, 3},
+      z::AbstractVector{<:Number},
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number};
+      type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+      estimd::Bool = true,
+    )
 
 Estimates the c and d matrices given a, b matrices and frequency function data ffdata.
 
-min_{c,d} sum_i || d + c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F
-
-if estimd == false 
-min_{c} sum_i || c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F
-
-if type='float' a real valued solution is calulated. if type='complex' 
+Solve the optimization problem\\
+``min_{c,d} sum_i || d + c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F ``\\
+or if `estimd == false`\\
+``min_{c} sum_i || c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F``\\
+if `type=Real` a real valued solution is calulated. If `type=Complex` 
 the solution is complex valued
 
 Parameters
 ----------
-ffdata:     frequency data packed in a matrix. fftata[i,:,:] is the frequency
+`ffdata`:     frequency data packed in a matrix. `ffdata[i,:,:]` is the frequency
             function matrix corresponding to sample i
-z:          vector with the frequecy points to evaluate, i.e. for DT z = exp(j*w)
-            where w is frequencies in radians per sample
-a:          a matrix
-b:          b matrix
-
-Optional
-type:       data type of model either 'Real' or 'Complex'
-estimd:     if set to false no d matrix is esimated and a zero d matrix is returned
+`z`:        vector with complex scalars\\
+`a`:        square matrix\\
+`b`:        matrix\\
+*Optional*\\
+`type`:       Data type of model. either 'Real' or 'Complex'\\
+`estimd`:     if set to false no d matrix is esimated and a zero d matrix is returned
 
 Returns 
 -------
-c:          LS-optimal c matrix
-d:          LS-optimal d matrix
+`c`:          LS-optimal `c` matrix\\
+`d`:          LS-optimal `d` matrix
 """
 function estimate_cd(
     ffdata::AbstractArray{<:Number, 3},
@@ -63,37 +68,40 @@ end
 
 """ 
     estimate_bd(ffdata, z, a, c; type = Real, estimd = true)
+    function estimate_bd(
+      ffdata::AbstractArray{<:Number, 3},
+      z::AbstractVector{<:Number},
+      a::AbstractMatrix{<:Number},
+      c::AbstractMatrix{<:Number};
+      type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+      estimd::Bool = true,
+    )
+
     
-Estimates the b and d matrices given a, c matrices and frequency function data 'ffdata'.
+Estimates the b and d matrices given a, c matrices and frequency function data ffdata.
 
-Calulates the b and d matrices for a linear dynamic system given the a and b 
-matrices and samples of frequency function data. It solves 
-
-min_{b,d} sum_i || d + c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F
-
-if estimd == false 
-min_{b} sum_i || c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F
-
-if type='float' a real valued solution is calulated. if type='complex' 
+Solve the optimization problem\\
+``min_{b,d} sum_i || d + c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F ``\\
+or if `estimd == false`\\
+``min_{b} sum_i || c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F``\\
+if `type=Real` a real valued solution is calulated. If `type=Complex` 
 the solution is complex valued
 
 Parameters
 ----------
-ffdata:     frequency data packed in a matrix. fftata[i,:,:] is the frequency
+`ffdata`:     frequency data packed in a matrix. `ffdata[i,:,:]` is the frequency
             function matrix corresponding to sample i
-z:          vector with the frequecy points to evaluate, i.e. for DT z = exp(j*w)
-            where w is frequencies in radians per sample
-a:          a matrix
-c:          c matrix
-
-Optional
-type:       data type of model either 'float' or 'complex'
-estimd:     if set to false no d matrix is esimated and a zero d matrix is returned
+`z`:        vector with complex scalars\\
+`a`:        square matrix\\
+`c`:        matrix\\
+*Optional*\\
+`type`:       Data type of model. either 'Real' or 'Complex'\\
+`estimd`:     if set to false no `d` matrix is esimated and a zero `d` matrix is returned
 
 Returns 
 -------
-b:          LS-optimal b matrix
-d:          LS-optimal d matrix
+`b`:          LS-optimal `b` matrix\\
+`d`:          LS-optimal `d` matrix
 """
 function estimate_bd(
     ffdata::AbstractArray{<:Number, 3},
@@ -101,14 +109,14 @@ function estimate_bd(
     a::AbstractMatrix{<:Number},
     c::AbstractMatrix{<:Number};
     type::Union{Type{<:Real}, Type{<:Complex}} = Real,
-    estimd::Bool = true
+    estimd::Bool = true,
 )
     fdt = transpose_ffdata(ffdata)
-    bt, dt = estimate_cd(fdt, z, transpose(a), transpose(c); type, estimd)
+    bt, dt = estimate_cd(fdt, z, transpose(a), transpose(c);type=type, estimd=estimd)
     
     transpose(bt), transpose(dt)
 end
-
+ 
 """
 	transpose_ffdata(ffdata)
 

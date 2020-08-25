@@ -1,37 +1,40 @@
 """
-    fdestim_cd(z, yd, ud, a, b, xt = 0; estTrans = false, type = Real, estimd = true)
+    fdestim_cd(z, yd, ud, a, b; xt = 0, estTrans = false, type = Real, estimd = true)
+    function fdestim_cd(
+      z::AbstractVector{<:Number},
+      yd::AbstractArray{<:Number},
+      ud::AbstractArray{<:Number},
+      a::AbstractArray{<:Number},
+      b::AbstractArray{<:Number},
+      xt::Union{AbstractVector{<:Number}, Number} = 0;
+      type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+      estimd::Bool = true
+    )
 
-Estimate c and d matrices given z, yd, ud and a, c, and (optionally xt) matrices
+Estimate `c` and `d` matrices given `z`, `yd`, `ud` and `a`, `c`, and (optionally `xt`) matrices
     
-Calulates the c and d matrices for a linear dynamic system given the a and b 
+Calulates the `c` and `d` matrices for a linear dynamic system on state-space form given the `a` and `b` 
 matrices and samples of rational function data. It solves
 
-if estimd = true and estTrans = true    
-min_{c,d} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])[ud[i,:]; z[i]]  - ffdata[i,:,:] |^2_F
+if `estimd = true` \\
+  ``min_{c,d} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])[ud[i,:]; z[i]]  - ffdata[i,:,:] |^2_F``
 
-if estimd = false and estTrans = true    
-min_{c} sum_i|| (c*inv(z[i]*I-a)*[b xt])[ud[i,:]; w[i]]  - ffdata[i,:,:] |^2_F
+if `estimd = false`\\
+  ``min_{c} sum_i|| (c*inv(z[i]*I-a)*[b xt])[ud[i,:]; w[i]]  - ffdata[i,:,:] |^2_F``
 
-if estimd = true and estTrans = false    
-min_{c,d} sum_i || (d+ c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F
-
-if estimd = false and estTrans = false    
-min_{c} sum_i|| (c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F
-
-if type = Real a real valued solution is calulated. if type = Complex 
-the solution is complex valued
+if `type = Real` a real valued solution is calulated. if `type = Complex` the solution is complex valued
 
 Parameters
-----------
-ffdata:     frequency data packed in a matrix. fftata[widx,:,:] is the frequency
-            function matrix corresponding to sample widx
-w:          vector with the frequecy data.
-a:          a matrix
-b:          b matrix
-
-Optional
-type:       data type of model either Real or Complex
-estimd:     if set to false no d matrix is esimated and a zero d matrix is returned
+=========
+`ffdata`:   data packed in a matrix. `ffdata[i,:,:]` is the frequency
+            function matrix (sample of the rationl function) corresponding to sample `i`\\
+`w`:          vector with the rational function arguments. `w[i]` is the function arguemnt for sample `i`\\
+`a`:         matrix\\
+`b`:         matrix\\
+*Optional*\\
+`xt`:        vector
+`type`:       data type of model either Real or Complex
+`estimd`:     if set to false no d matrix is esimated and a zero d matrix is returned
   
 Returns 
 -------
@@ -45,7 +48,6 @@ function fdestim_cd(
     a::AbstractArray{<:Number},
     b::AbstractArray{<:Number},
     xt::Union{AbstractVector{<:Number}, Number} = 0;
-    estTrans::Bool = false,
     type::Union{Type{<:Real}, Type{<:Complex}} = Real,
     estimd::Bool = true
 )
@@ -55,8 +57,7 @@ function fdestim_cd(
     m = size(ud, 2)
     n = size(a, 1)
     nw = size(z, 1)
-
-    if estTrans == true
+    if xt != 0
         ude = [ud z]
         be = [b xt]
     else
@@ -94,44 +95,55 @@ end
 
 """
     fdestim_bd(z, yd, ud, a, c; estTrans::Bool = false, type, estimd = true)
+    function fdestim_bd(
+      z::AbstractVector{<:Number},
+      yd::AbstractMatrix{<:Number},
+      ud::AbstractMatrix{<:Number},
+      a::AbstractMatrix{<:Number},
+      c::AbstractMatrix{<:Number};
+      estTrans::Bool = false,
+      type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+      estimd::Bool = true
+    )
 
-Estimate B and D matrices ( and optionally xt) given yd and ud and a and c matrices
+Estimate `b` and `d` matrices ( and optionally `xt`) given `yd`, `ud`, `a` and `c` matrices
     
-Calulates the b and d matrices (and optimally xt) for a linear dynamic system given the a and c 
+Calulates the `b` and `d` matrices (and optimally `xt`) for a linear dynamic system in state-space form given the `a` and `c` 
 matrices and samples of frequency domain function data. It solves 
 
-if estimd = true and estTrans = true    
-min_{b,d,xt} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])[ud[i,:]; z[i]]  - ffdata[i,:,:] |^2_F
+if `estimd = true` and `estTrans = true`\\
+  ``min_{b,d,xt} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])[ud[i,:]; z[i]]  - ffdata[i,:,:] |^2_F``
 
-if estimd=false and estTrans = true    
-min_{b,xt} sum_i|| (c*inv(z[i]*I-a)*[b xt])[ud[i,:]; w[i]]  - ffdata[i,:,:] |^2_F
+if `estimd=false` and `estTrans = true` \\
+  ``min_{b,xt} sum_i|| (c*inv(z[i]*I-a)*[b xt])[ud[i,:]; w[i]]  - ffdata[i,:,:] |^2_F``
 
-if estimd = true and estTrans=false    
-min_{b,d} sum_i || (d+ c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F
+if `estimd = true` and `estTrans=false` \\
+  ``min_{b,d} sum_i || (d+ c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F``
 
-if estimd=false and estTrans=false    
-min_{b} sum_i|| (c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F
+if `estimd=false` and `estTrans=false` \\
+  ``min_{b} sum_i|| (c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F``
 
-if type=Real a real valued solution is calulated. if type = Complex 
+if `type=Real` a real valued solution is calulated. if `type = Complex` 
 the solution is complex valued
     
 Parameters
 ----------
-z:          vector with the frequecy data
-yd:         output frequency data yd[widx,:]    
-ud:         input frequency data ud[widx,:]    
-a:          a matrix
-c:          c matrix
+`z`:          vector with the samples of the function argument where `z[i]` is argument for index `i`\\
+`yd`:         output frequency data `yd[i,:]`\\    
+`ud`:         input frequency data `ud[widx,:]`\\
+`a`:          matrix
+`c`:          matrix
 
-Optional
-estTrans:   if set to   true also an xt vector will be estimated capturing the transient effect
-type:       data type of model either Real or Complex
-estimd:     if set to false no d matrix is esimated and a zero d matrix is returned
+*Optional*\\
+`estTrans`:   if set to true also an xt vector will be estimated capturing the transient effect\\
+`type`:       data type of model, either Real or Complex\\
+`estimd`:     if set to false no `d` matrix is esimated and a zero `d` matrix is returned
 
 Returns 
 -------
-c:          the LS-optimal c matrix
-d:          LS-optimal d matrix 
+`c`:          the LS-optimal `c` matrix\\
+`d`:          LS-optimal `d` matrix  zeros matrix if `estimd=false`\\
+`xt`:         LS-optimal `xt` vector if `estTrans=true`\\
 """
 function fdestim_bd(
     z::AbstractVector{<:Number},
@@ -158,7 +170,7 @@ function fdestim_bd(
         me = m
     end
 
-    fkern = permutedims(ltifr(transpose(a), transpose(c), z), (3, 2, 1))
+    fkern = permutedims(ltifr(copy(transpose(a)), copy(transpose(c)), z), (3, 2, 1))
     eyep = Matrix{Float64}(I, p, p)
 
     if estimd      

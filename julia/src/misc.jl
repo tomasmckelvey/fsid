@@ -1,22 +1,18 @@
 """
     fresp_slow!(frsp, z, a, b, c, d)
+    function fresp_slow!(
+      frsp::AbstractArray{<:Number, 3},
+      z::AbstractVector{<:Number},
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      c::AbstractMatrix{<:Number},
+      d::AbstractMatrix{<:Number}
+    )
 
-Frequency response of ss-model (a,b,c,d) calulated as
+Frequency response of ss-model `(a,b,c,d)` calulated as
 
-fresp[i,:,:] = d+c*inv(I*z[i]-a)*b (slow version)
+  ``fresp[i,:,:] = d+c*inv(I*z[i]-a)*b`` (slow version)
 
-Parameters
-==========
-frsp:       frequency response
-z:          vector with the frequecy data
-a:          a matrix
-b:          b matrix
-c:          c matrix
-d:          d matrix
-
-Returns
-=======
-nothing
 """
 function fresp_slow!(
     frsp::AbstractArray{<:Number, 3},
@@ -40,22 +36,20 @@ end
 
 """
     fresp_fast!(frsp, z, a, b, c, d, eig)
+    function fresp_fast!(
+      frsp::AbstractArray{<:Number, 3},
+      z::AbstractVector{<:Number},
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      c::AbstractMatrix{<:Number},
+      d::AbstractMatrix{<:Number},
+     eig::Eigen
+    )
 
-Frequency response of ss-model (a,b,c,d) (fast version)
+Frequency response of ss-model `(a,b,c,d)` (fast version)
 
-Parameters
-==========
-frsp:       frequency response
-z:          vector with the frequecy data
-a:          a matrix
-b:          b matrix
-c:          c matrix
-d:          d matrix
-eig:        eigen decomposition
+  ``fresp[i,:,:] = d+c*inv(I*z[i]-a)*b``
 
-Returns
-=======
-nothing
 """
 function fresp_fast!(
     frsp::AbstractArray{<:Number, 3},
@@ -73,28 +67,41 @@ function fresp_fast!(
     c = c * eig.vectors
 
     for widx in 1:nw
-        frsp[widx, :, :] = multidot(c, diagm(1 ./ (o * z[widx] - eig.values) ), b) + d
+        frsp[widx, :, :] = multidot(c, diagm(0 => (1 ./ (o * z[widx] - eig.values)) ), b) + d
     end
 
     return nothing
 end
 
 """
-    fresp(a, b, c, d, noWarning = false)
+    fresp(z, a, b, c, d, noWarning = true)
+    function fresp(
+      z::AbstractVector{<:Number},
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      c::AbstractMatrix{<:Number},
+      d::AbstractMatrix{<:Number},
+      noWarning::Bool = true
+    )
 
-Frequency response of ss-model (a,b,c,d)
+Frequency response of ss-model `(a,b,c,d)` a rational matrix function
 
+  ``fresp[i,:,:] = d+c*inv(z[i]*I-a)*b``
+
+`fresp[i,:,:]` is the function value of the rational matrix function evaluated at `z[i]`
+ 
 Parameters
 ==========
-z:          vector with the frequecy data
-a:          a matrix
-b:          b matrix
-c:          c matrix
-d:          d matrix
+`z`:          vector with samples of the function argument\\
+`a`:          matrix\\
+`b`:          matrix\\
+`c`:          matrix\\
+`d`:          matrix\\
+`noWarning`:  information message is suppressed if set to true
 
 Returns
 =======
-frsp:       frequency response
+`frsp`:       frequency response
 """
 function fresp(
     z::AbstractVector{<:Number},
@@ -102,7 +109,7 @@ function fresp(
     b::AbstractMatrix{<:Number},
     c::AbstractMatrix{<:Number},
     d::AbstractMatrix{<:Number},
-    noWarning::Bool = false
+    noWarning::Bool = true
 )
     n, m = size(b)
     p = size(c, 1)
@@ -125,21 +132,17 @@ end
 
 """
     ltifr_slow!(fkern, a, b, z)
+    function ltifr_slow!(
+      fkern::AbstractArray{<:Number, 3},
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      z::AbstractVector{<:Number}
+    )
 
-Calculates the (nz, n, m) size frequency kernel as 
+Calculates the frequency kernel as 
 
-fkern[i,:,:] = inv(z[i]*eye(n)-a)*b (slow version)
+  ``fkern[i,:,:] = inv(z[i]*I-a)*b (slow version)``
 
-Parameters
-==========
-fkern:      frequency response
-a:          a matrix
-b:          a matrix
-z:          vector with the frequecy data
-
-Returns
-=======
-nothing
 """
 function ltifr_slow!(
     fkern::AbstractArray{<:Number, 3},
@@ -159,20 +162,18 @@ end
 
 """
     ltifr_fast!(fkern, a, b, z, eig)
+    function ltifr_fast!(
+      fkern::AbstractArray{<:Number, 3},
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      z::AbstractVector{<:Number},
+      eig::Eigen
+    )
 
-Calculates the (nz, n, m) size frequency kernel (fast version)
+Calculates the frequency kernel (fast version)
 
-Parameters
-==========
-fkern:      frequency response
-a:          a matrix
-b:          b matrix
-z:          vector with the frequecy data
-eig:        eigen decomposition
+  ``fkern[i,:,:] = inv(z[i]*I-a)*b (slow version)``
 
-Returns
-=======
-nothing
 """
 function ltifr_fast!(
     fkern::AbstractArray{<:Number, 3},
@@ -188,39 +189,47 @@ function ltifr_fast!(
     bb = eig.vectors\b
     for widx in 1:nw
         da = o * z[widx] - eig.values
-        fkern[widx, :, :] = multidot(eig.vectors, diagm(1 ./ da), bb)    
+        fkern[widx, :, :] = multidot(eig.vectors, diagm(0 => (1 ./ da)), bb)    
     end
 
     return nothing
 end
 
 """ 
-    ltifr(a, b, z, noWarning = false)
+    ltifr(a, b, z, noWarning = true)
+    function ltifr(
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      z::AbstractVector{<:Number},
+      noWarning::Bool = true    
+    )
 
-Calculates the (nz,n,m) size frequency kernel 
+Calculates the frequency kernel
+
+  ``fkern[i,:,:] = inv(z[i]*I-a)*b``
 
 Parameters
 ==========
-a:          a matrix
-b:          a matrix
-z:          vector with the frequecy data
-noWarning:  display warning boolean
+`a`:          matrix\\
+`b`:          matrix\\
+`z`:          vector with the samples of the function argument \\
+`noWarning`:  if true suppress information message
 
 Returns
 =======
-fkern:      frequency response 
+`fkern`:      frequency response 
 """
 function ltifr(
     a::AbstractMatrix{<:Number},
     b::AbstractMatrix{<:Number},
     z::AbstractVector{<:Number},
-    noWarning::Bool = false
+    noWarning::Bool = true    
 )
     n, m = size(b)
     nw = length(z)
     fkern = zeros(ComplexF64, nw, n, m)
 
-    eig = eigen(a)
+    eig = eigen(copy(a))
     
     if rank(eig.vectors) < n
         if !noWarning
@@ -237,18 +246,25 @@ end
 
 """
     function ltifd_slow!(fkern, a, b, u, z)
+    function ltifd_slow!(
+      fkern::AbstractMatrix{<:Number},
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      u::AbstractMatrix{<:Number},
+      z::AbstractVector{<:Number}
+    )
 
-Calculates the (nz, n) size frequency kernel with input u (slow version)
+Calculates the frequency kernel with input `u` (slow version)
 
-fkern[:, i] = inv(eye(n)*z[i] - a)*b*u[i, :] 
+  ``fkern[:, i] = inv(z[i]*I - a)*b*u[i, :] ``
 
 Parameters
 ==========
-fkern:      frequency kernel
-a:          a matrix
-b:          b matrix
-u:          input vectors
-z:          vector with the frequecy data
+`fkern`:      frequency kernel\\
+`a`:          matrix\\
+`b`:          matrix\\
+`u`:          matrix with input vectors\\
+`z`:          vector with the frequecy data
 
 Returns
 =======
@@ -275,23 +291,32 @@ end
 
 """
     function ltifd_fast!(fkern, a, b, u, z, eig)
+    function ltifd_fast!(
+      fkern::AbstractMatrix{<:Number},
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      u::AbstractMatrix{<:Number},
+      z::AbstractVector{<:Number},
+      eig::Eigen
+    )
 
-Calculates the (nz, n) size frequency kernel with input u (fast version)
+Calculates the frequency kernel with input `u` (fast version)
 
-fkern[:, i] = inv(eye(n)*z[i] - a)*b*u[i, :] 
+  ``fkern[:, i] = inv(z[i]*I - a)*b*u[i, :] ``
 
 Parameters
 ==========
-fkern:      frequency kernel
-a:          a matrix
-b:          b matrix
-u:          input vectors
-z:          vector with the frequecy data
-eig:        eigen decomposition
+`fkern`:      frequency kernel\\
+`a`:          matrix\\
+`b`:          matrix\\
+`u`:          matrix with input vectors\\
+`z`:          vector with the frequecy data\\
+`eig`:        eigendecomposition of `a`
 
 Returns
 =======
 nothing
+
 """
 function ltifd_fast!(
     fkern::AbstractMatrix{<:Number},
@@ -308,7 +333,7 @@ function ltifd_fast!(
     bb = eig.vectors\b
     for widx in 1:nw
         da = o * z[widx] - eig.values
-        fkern[:, widx] = multidot(eig.vectors, diagm(1 ./ da), bb * u[widx, :])
+        fkern[:, widx] = multidot(eig.vectors, diagm(0 => (1 ./ da)), bb * u[widx, :])
     end  
 
     return nothing
@@ -316,28 +341,37 @@ end
 
 
 """
-    function ltifd(a, b, u, z, noWarning = false)
+    function ltifd(a, b, u, z, noWarning = true)
+    function ltifd(
+      a::AbstractMatrix{<:Number},
+      b::AbstractMatrix{<:Number},
+      u::AbstractMatrix{<:Number},
+      z::AbstractVector{<:Number},
+      noWarning::Bool = true
+    )
 
-Calculates the (nz, n) frequency kernel with input u.
+Calculates the frequency kernel with input `u` 
+
+  ``fkern[:, i] = inv(z[i]*I - a)*b*u[i, :] ``
 
 Parameters
 ==========
-a:          a matrix
-b:          b matrix
-u:          input vectors
-z:          vector with the frequecy data
-noWarning:  display warning boolean
+`a`:          matrix\\
+`b`:          matrix\\
+`u`:          input vectors\\
+`z`:          vector with samples of the function argument\\
+`noWarning`:  if true suppress information message
 
 Returns
 =======
-fkern:      frequency kernel
+`fkern`:      frequency kernel
 """
 function ltifd(
     a::AbstractMatrix{<:Number},
     b::AbstractMatrix{<:Number},
     u::AbstractMatrix{<:Number},
     z::AbstractVector{<:Number},
-    noWarning::Bool = false
+    noWarning::Bool = true
 )
     n, m = size(b)
     nw = length(z)
@@ -358,42 +392,42 @@ function ltifd(
 end
 
 """
-    function ffdata2fddata(ffdata, w)
+    function ffdata2fddata(ffdata, z)
 
-Converts ffdata to fddata
+Converts `ffdata` to `fddata`
     
-Converts frequency function data (ffdata) to input/output data format (fddata).
+Converts frequency function data (`ffdata`) to input/output data format (`fddata`).
 
 Parameters
 ==========
-ffdata:     frequency function data in the format such that `ffdata[widx,:,:]` 
+`ffdata`:   frequency function data in the format such that `ffdata[i,:,:]` 
             corresponds to the frequency function matrix of size `(p,m)` at
-            frequency index `widx` at a total number of frequencies `nw`
-w:          array with the corresponding frequencies in radians per sample.   
+            frequency index `i` corresponding to function argument `z[i]` at a total number of samples `nz`\\
+`z`:          array with the corresponding frequency function argument of size `nz`
     
 Returns
 =======
-u:          Fourier transform of input of size `(m*nw, m)`
-y:          Fourier transform of output of size `(m*nw, p)`
-wn:         frequency vector of length `m*nw`
+`u`:          Fourier transform of input of size `(m*nz, m)`\\
+`y`:          Fourier transform of output of size `(m*nz, p)`\\
+`zn`:         frequency function argument vector of length `m*nw`\\
 """
 function ffdata2fddata(
     ffdata::AbstractArray{<:Number, 3},
-    w::AbstractVector{<:Number}
+    z::AbstractVector{<:Number}
 )
-    nw, p, m = size(ffdata)
-    u = Matrix{ComplexF64}(undef, nw*m, m)
-    y = Matrix{ComplexF64}(undef, nw*m, p)
-    wn = Vector{Float64}(undef, nw*m)
+    nz, p, m = size(ffdata)
+    u = Matrix{ComplexF64}(undef, nz*m, m)
+    y = Matrix{ComplexF64}(undef, nz*m, p)
+    zn = Vector{Float64}(undef, nz*m)
     b0 = Matrix{Float64}(I, m, m)
 
     for midx in 1:m
-        y[(midx-1)*nw+1:midx*nw, :] = ffdata[:, :, midx]
-        u[(midx-1)*nw+1:midx*nw, :] = repeat(transpose(b0[midx, :]), nw, 1)
-        wn[(midx-1)*nw+1:midx*nw] = w[:]
+        y[(midx-1)*nz+1:midx*nz, :] = ffdata[:, :, midx]
+        u[(midx-1)*nz+1:midx*nz, :] = repeat(transpose(b0[midx, :]), nz, 1)
+        zn[(midx-1)*nz+1:midx*nz] = z[:]
     end
 
-    return u, y, wn
+    return u, y, zn
 end
 
 """
@@ -403,21 +437,21 @@ Calculates the time domain input to state respone
     
 Calculates the time domain state response
 
-x[i+1,:] = np.dot(a,x[i,:]) + np.dot(b,u[i,:])
+  ``x[i+1,:] = a*x[i,:]) + b*u[i,:]``
 
 Parmeters
 =========
-a:          a square matrix of size `(n,n)`
-b:          a matrix of size `(n,m)`
-u:          an array of input vectors such that `u[i,:]` is 
+`a`:          a square matrix of size `(n,n)`\\
+`b`:          a matrix of size `(n,m)`\\
+`u`:          an array of input vectors such that `u[i,:]` is 
             the input vector of size `m` at time index `i`. 
-            The array has size `(N,m)`.
-x0:         intial vector of size `n`, i.e. `x[0,:]=x0`. Default value is the zero vector. 
+            The array has size `(N,m)`.\\
+`x0`:         intial vector of size `n`, i.e. `x[0,:]=x0`. Default value is the zero vector.\\ 
     
 Returns
 =======
-x:          the resulting state-sequence of size `(N,n)`
-            x[k,:] is the state at sample k
+`x`:          the resulting state-sequence of size `(N,n)`. 
+            `x[k,:]` is the state at sample `k`.
 """
 function ltitr(
     a::AbstractMatrix{<:Number},
@@ -443,31 +477,36 @@ end
 
 """
     function lsim(sys::Tuple, u, x0 = 0; type = Real)
+    function lsim(
+      sys::Tuple,
+      u::AbstractMatrix{<:Number},
+      x0::Union{AbstractVector{<:Number}, Number} = 0;
+      type::Union{Type{<:Real}, Type{<:Complex}} = Real
+    )
 
-Calculates the time-domain output given input sequence and state-space model
+Calculates the time-domain output given input sequence and state-space model `sys = (a,b,c,d)`
 
-x[i+1,:] = np.dot(a,x[i,:]) + np.dot(b,u[i,:])
+  ``x[i+1,:] = a*x[i,:]) + b*u[i,:]``\\
+  ``y[i,:] =  c*x[i,:]) + d*u[i,:]``
 
-y[i,:] = np.dot(c,x[i,:]) + np.dot(d,u[i,:])
-
-Parmeters
+Parameters
 =========
-sys:        sys = (a, b, c, d) or
-            sys = (a, b, c)
+`sys`:      a typle `sys = (a, b, c, d)` or
+            `sys = (a, b, c)`
             where
-            a square matrix of size (n,n), b is 
-            a matrix of size (n,m), c is a matrix of size (p,n)
-            and (optionally) d is a matrix of size (p,m).
-u:          an array of input vectors such that u[i,:] is 
+            `a` is a square matrix of size (n,n), `b` is 
+            a matrix of size (n,m), `c` is a matrix of size (p,n)
+            and (optionally) `d` is a matrix of size (p,m).\\
+`u`:          an array of input vectors such that `u[i,:]` is 
             the input vector of size m at time index i. 
-            The array has size (N,m).
-
-Optional
-x0:         intial vector of size n, i.e. x[0,:]=x0. Default value is the zero vector. 
+            The array has size (N,m).\\
+*Optional*\\
+`x0`:         intial vector of size n, i.e. `x[0,:]=x0`. Default value is the zero vector. 
     
 Returns
 =======
-y:          the resulting output sequence of size (N,p)
+`y`:          the resulting output sequence of size (N,p)\\
+`x`:          the resulting state sequence of size (N,n)
 """
 function lsim(
     sys::Tuple,
@@ -492,7 +531,7 @@ function lsim(
         return False
     end
 
-    x = ltitr(a, b, u, x0; type)
+    x = ltitr(a, b, u, x0; type=type)
     nu = size(u, 1)
     y = Matrix{type}(undef, nu, p)
 
@@ -500,31 +539,41 @@ function lsim(
         y[idx, :] = c * x[idx, :] + d * u[idx, :]
     end
     
-    return y
+    return y, x
 end
 
 """
-    dsim(sys, u, z, xt = np.empty(0))
+    fdsim(sys, u, z, xt = 0)
+    function fdsim(
+      sys::Tuple,
+      u::AbstractMatrix{<:Number},
+      z::AbstractVector{<:Number},
+      xt::AbstractMatrix{<:Number} = Matrix{Float64}(undef, 0, 0)
+    )
 
 Calculates the output given input and state-space model in Fourier domain.
 
+  ``x[i,:] = inv(z[i]*I-a)*[B xt]*[u[i,:]; z[i]]``\\
+  ``y[i,:] = d*u[i,:] + c*x[i,:]``
+
 Parameters
 ==========
-sys:        sys = (a, b, c, d) or
-            sys = (a, b, c)
+`sys`:      typle `sys = (a, b, c, d)` or
+            `sys = (a, b, c)`
             where
-            a square matrix of size (n,n), b is 
-            a matrix of size (n,m), c is a matrix of size (p,n)
-            and (optionally) d is a matrix of size (p,m).
-u:          an array of input vectors such that u[i,:] is 
-            the input vector of size m at time index i. 
-            The array has size (N,m)
-z:          vector with the frequecy data
-xt:         intial vector of size n, i.e. x[0,:]=x0. Default value is the zero vector. 
+            `a` is a  square matrix of size (n,n), `b` is 
+            a matrix of size (n,m), `c` is a matrix of size (p,n)
+            and (optionally) `d` is a matrix of size (p,m).\\
+`u`:        an array of input vectors such that `u[i,:]` is 
+            the input vector of size m at sample index `i`. 
+            The array has size (N,m)\\
+`z`:        vector with the samples of the frequency function argument\\
+xt:         transient vector of size n, Default value is the zero vector. 
     
 Returns
 =======
-y:          the resulting output sequence of size (N,p)
+`y`:          the resulting output sequence of size (N,p)\\
+`x`:          the resulting state sequence of size (N,p)
 """
 function fdsim(
     sys::Tuple,
@@ -562,25 +611,26 @@ function fdsim(
         y[widx, :] = (c * x[:, widx]) + (d * u[widx, :])
     end
 
-    return y
+    return y, x
 end
 
 """
     bilinear_d2c(sys, T = 1)
+    function bilinear_d2c(sys::Tuple, T::Real = 1)
 
-Calculates the bilinear transformation D->C for ss-system sys.
+Calculates the bilinear transformation D->C for ss-system `sys`.
 
 Parameters
 ==========
-sys:        tuple of system matrices (a, b, c, d)
-T:          frequency scaling factor
+`sys`:        tuple of system matrices `(a, b, c, d)`\\
+`T`:          frequency scaling factor
 
 Returns
 =======
-a:          a matrix
-b:          b matrix
-c:          c matrix
-d:          d matrix
+`a`:          matrix\\
+`b`:          matrix\\
+`c`:          matrix\\
+`d`:          matrix\\
 """
 function bilinear_d2c(sys::Tuple, T::Real = 1)
     a, b, c, d = sys
@@ -597,19 +647,19 @@ end
 """
     bilinear_c2d(sys, T = 1)
 
-Calculates the bilinear transformation C->D for ss-system sys.
+Calculates the bilinear transformation C->D for ss-system `sys`.
 
 Parameters
 ==========
-sys:        tuple of system matrices (a, b, c, d)
-T:          frequency scaling factor
+`sys`:        tuple of system matrices `(a, b, c, d)`\\
+`T`:          frequency scaling factor
 
 Returns
 =======
-a:          a matrix
-b:          b matrix
-c:          c matrix
-d:          d matrix
+`a`:          matrix\\
+`b`:          matrix\\
+`c`:          matrix\\
+`d`:          matrix\\
 """
 function bilinear_c2d(sys::Tuple, T::Real = 1)
     a, b, c, d = sys
@@ -626,32 +676,32 @@ end
 """
     cf2df(wc, T)
 
-Calculates the bilinear transformation frequency mapping C->D for frequency vector wc.
+Calculates the bilinear transformation frequency mapping C->D for frequency vector `wc`.
 
 Parameters
 ==========
-wc:         frequencies
-T:          frequency scaling factor
+`wc`:         vector of frequencies\\
+`T`:          frequency scaling factor
 
 Returns
 =======
-a:          a
+`wd`:         vector of transformed frequencies  
 """
 cf2df(wc::AbstractVector{<:Number}, T::Real) = 2*atan.(wc*T/2)
 
 """
     df2cf(wd, T)
 
-Calculates the bilinear transformation frequency mapping D->C for frequency vector wd.
+Calculates the bilinear transformation frequency mapping D->C for frequency vector `wd`.
 
 Parameters
 ==========
-wd:         frequencies
-T:          frequency scaling factor
+`wd`:         vector of frequencies\\
+`T`:          frequency scaling factor
 
 Returns
 =======
-continous time frequencies
+`wc`:         vector of transformed frequencies  
 """
 df2cf(wd::AbstractVector{<:Number}, T::Real) = 2*tan.(wd/2)/T
 

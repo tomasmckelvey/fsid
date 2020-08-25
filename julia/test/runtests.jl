@@ -1,24 +1,25 @@
-using fsid, LinearAlgebra, FFTW
+using LinearAlgebra, FFTW
 using Test
-import fsid.fresp,
-       fsid.estimate_cd,
-       fsid.estimate_bd,
-       fsid.transpose_ffdata,
-       fsid.fresp,
-       fsid.ffdata2fddata,
-       fsid.fdestim_bd,
-       fsid.fdestim_cd,
-       fsid.fdsid,
-       fsid.ffsid,
-       fsid.bilinear_c2d,
-       fsid.bilinear_d2c,
-       fsid.lsim,
-       fsid.fdsim,
-       fsid.cf2df,
-       fsid.df2cf,
-       fsid.ltifr
 
-
+using fsid: 
+  fresp,
+  estimate_cd,
+  estimate_bd,
+  transpose_ffdata,
+  fresp,
+  ffdata2fddata,
+  fdestim_bd,
+  fdestim_cd,
+  fdsid,
+  ffsid,
+  bilinear_c2d,
+  bilinear_d2c,
+  lsim,
+  fdsim,
+  cf2df,
+  df2cf,
+  ltifr
+  
 # Helper functions
 buildss(n, m, p) = randn(n, n), randn(n, m), randn(p, n), randn(p, m)
 buildfset(N) = (0:N-1)/N
@@ -82,7 +83,7 @@ function unit_test_fresp(fset, m, n, p)
     nw = length(z)
     dd = zeros(Complex, n)
     adiag = randn(n)
-    A = diagm(adiag)
+    A = diagm(0 => adiag)
     fd = Array{Complex}(undef, nw, p, m)
 
     for fidx in 1:nw
@@ -90,7 +91,7 @@ function unit_test_fresp(fset, m, n, p)
         for didx in 1:n
             dd[didx] = 1 / (emad[didx] - adiag[didx]) 
         end
-        fd[fidx, :, :] = ((C * diagm(dd)) * B) + D
+        fd[fidx, :, :] = ((C * diagm(0 => dd)) * B) + D
     end
 
     Ae = T * (A/T)
@@ -170,7 +171,7 @@ function unit_test_ltifr_slow(fset, m, n, p)
 
     nw = length(z)
     adiag = randn(n)
-    A = diagm(adiag)
+    A = diagm(0 => adiag)
     fkern1 = Array{Complex}(undef, nw, n, m)
 
     for fidx in 1:nw
@@ -180,7 +181,7 @@ function unit_test_ltifr_slow(fset, m, n, p)
         #     dd[didx] = 1/(emad[didx]-adiag[didx])
         # end
 
-        fkern1[fidx, :, :] = T * (diagm(dd) * B)
+        fkern1[fidx, :, :] = T * (diagm(0 => dd) * B)
     end
     Ae = T * (A/T)
     Be = T * B
@@ -223,7 +224,7 @@ function unit_test_fdsid(fset, m, n ,p)
     fd = fresp(z, A, B, C, D)
 
     u = randn(N, m)
-    y = lsim((A, B, C, D), u; type = Real)
+    y, x = lsim((A, B, C, D), u; type = Real)
 
     yf = fft(y, 1)
     uf = fft(u, 1)
@@ -247,7 +248,7 @@ function unit_test_fdsid_cmplx(fset, m, n ,p)
     z = ztrans(fset)
     fd = fresp(z, A, B, C, D)
     u = randn(N, m)
-    y = lsim((A, B, C, D), u; type = Complex)
+    y, x = lsim((A, B, C, D), u; type = Complex)
     yf = fft(y, 1)
     uf = fft(u, 1)
     fddata = (w, yf, uf)
@@ -298,7 +299,7 @@ function unit_test(testfunc)
        string(testfunc) == "unit_test_ltifr_def"
         nmpset = [(2, 4, 12), (2, 3, 6)]
     elseif string(testfunc) == "unit_test_ltifr_slow"
-        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12), (2, 3, 12)] # change from (1,1,1) to (2,1,1)
+        nmpset = [(4, 1, 1), (1,1,1), (2, 1, 1), (2, 4, 12), (2, 3, 12)] # change from (1,1,1) to (2,1,1)
     elseif string(testfunc) ==  "unit_test_fconv"
         nmpset = [(1, 1, 1)]
     else
