@@ -1,0 +1,18 @@
+Weightings
+   use output oriented MIMO weighting
+
+LRM
+   Check implementation
+   More?
+
+RankMin
+   Finish implementation and verify functionality
+
+Singular systems
+   Theory
+   Implementation in code
+
+Möbius
+	Transformation
+	Optimal transformation
+   
