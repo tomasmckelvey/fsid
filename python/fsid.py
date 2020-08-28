@@ -454,16 +454,20 @@ def gffsid(z, ffdata, n, q, dtype='float', estimd=True):
     r = linalg.qr(h.T, mode='r', overwrite_a=True)  #Calulates the projection
     r = r[0].T
     r22 = r[m*q:, m*q:]
-    u, s, vh = linalg.svd(r22, full_matrices=False, overwrite_a=True)
-    c = u[:p, :n]
-    lh = u[:p*(q-1), :n]
-    rh = u[p:, :n]
+    ul, s, vh = linalg.svd(r22, full_matrices=False, overwrite_a=True)
+    c = ul[:p, :n]
+    lh = ul[:p*(q-1), :n]
+    rh = ul[p:, :n]
     lsres = linalg.lstsq(lh, rh, overwrite_a=True, overwrite_b=True)
     a = lsres[0]
     be, de = ls_estim_bd(ffdata, z, a, c, dtype, estimd)
     ce, de = ls_estim_cd(ffdata, z, a, be, dtype, estimd)
     be, de = ls_estim_bd(ffdata, z, a, ce, dtype, estimd)
     ce, de = ls_estim_cd(ffdata, z, a, be, dtype, estimd)
+#    pip = np.eye(m*nw) - np.linalg.multi_dot( [u.T.conj(), np.linalg.inv( np.dot(u , u.T.conj())),  u]) 
+#    x = np.dot(y, pip)
+#    pip, u, R, Gproj = project_fdshape(x, z, p, m, q)
+#    print(np.linalg.norm(Gproj-ffdata))
     return a, be, ce, de, s
 
 
@@ -1127,7 +1131,9 @@ def vec(a):
         A vector with all columns in a concatenated to one long vector
     """    
     return np.reshape(a,np.size(a), order='F')
-    
+
+
+
 if __name__ == "__main__":
 
 # Below is unit test code
@@ -1500,21 +1506,32 @@ if __name__ == "__main__":
     
     def unit_test_bilinear():
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        T = 2
         for (n, m, p) in nmpset: 
             A = np.random.randn(n, n)
             B = np.random.randn(n, m)
             C = np.random.randn(p, n)
             D = np.random.randn(p, m)
-            a, b, c, d = bilinear_c2d((A, B, C, D), 2)
-            Ae, Be, Ce, De = bilinear_d2c((a, b, c, d), 2)
+            a, b, c, d = bilinear_c2d((A, B, C, D), T)
+            Ae, Be, Ce, De = bilinear_d2c((a, b, c, d), T)
             err = (linalg.norm(A-Ae)/linalg.norm(A) + 
                 linalg.norm(B-Be)/linalg.norm(B) + 
                 linalg.norm(C-Ce)/linalg.norm(C) +
                 linalg.norm(D-De)/linalg.norm(D))
             if err > 1e-8:
-                print('Unit test "bilinear" failed err=', err)
+                print('Unit test "bilinear 1" failed err=', err)
                 return False        
-        print('Unit test "bilinear" passed')
+            N = 100
+            fset = np.arange(0, N, dtype='float')/N
+            s = 1j*2*np.pi*fset
+            z = np.exp(1j*cf2df(2*np.pi*fset,T))
+            Hc = fresp(s, A, B, C, D)
+            Hd = fresp(z, a, b, c, d)
+            err = linalg.norm(Hc-Hd)/linalg.norm(Hc) 
+            if err > 1e-8:
+                print('Unit test "bilinear 2" failed err=', err)
+                return False        
+        print('Unit test "bilinear 1 and 2" passed')
         return True   
 
     def unit_test_fconv():
@@ -1604,8 +1621,8 @@ if __name__ == "__main__":
                 print('Unit test "fdsid" failed')
                 return False        
             W = np.random.randn(N,p,p)
-            for idx in range(N):
-                W[idx,:,:] = np.eye(p)
+#            for idx in range(N):
+#                W[idx,:,:] = np.eye(p)
             Ae, Be, Ce, De, xt, s =  fdsid(fddata, n, 2*n, 
                                                 estTrans=True, dtype='float', W=W)
             fde = fresp(z, Ae, Be, Ce, De)
@@ -1697,5 +1714,4 @@ if __name__ == "__main__":
         and unit_test_fconv()
         and unit_test_lrm()):
         print("All unit tests passed")
-            
-    
+        
