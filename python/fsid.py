@@ -383,20 +383,26 @@ def gffsid(z, ffdata, n, q, dtype='float', estimd=True):
     nwfd, p, m = np.shape(ffdata)
     nw = np.size(z, 0)
     if q < n+1:
-        print("Error: q must satidfy q>n.")
+        print("Error: q must satisfy q>n.")
         return False
     if nw != nwfd:
         print("Error: w and ffdata sizes does not match!")
         return False
     y = np.empty([p*q, nw*m], dtype='complex')
-    u = np.empty([m*q, nw*m], dtype='complex')
+    if estimd:
+        u = np.empty([m*q, nw*m], dtype='complex')
+    else:
+        u = np.empty([m*(q-1), nw*m], dtype='complex')
+        
+            
     for widx in range(nw):
         y[:p, widx*m:(widx+1)*m] = ffdata[widx, :, :]
         u[:m, widx*m:(widx+1)*m] = np.eye(m)
         zx = z[widx]
         for qidx in range(q)[1:]:
             y[qidx*p:(qidx+1)*p, widx*m:(widx+1)*m] = zx*ffdata[widx, :, :]
-            u[qidx*m:(qidx+1)*m, widx*m:(widx+1)*m] = zx*np.eye(m)
+            if estimd or qidx<q-1:
+                u[qidx*m:(qidx+1)*m, widx*m:(widx+1)*m] = zx*np.eye(m)
             zx *= z[widx]
     if dtype == 'float':
         hU = np.concatenate((np.real(u), np.imag(u)), 1)
@@ -407,7 +413,10 @@ def gffsid(z, ffdata, n, q, dtype='float', estimd=True):
     h = np.concatenate((hU, hY))
     r = linalg.qr(h.T, mode='r', overwrite_a=True)  #Calulates the projection
     r = r[0].T
-    r22 = r[m*q:, m*q:]
+    if estimd:
+        r22 = r[m*q:, m*q:]
+    else:
+        r22 = r[m*(q-1):, m*(q-1):]                    
     u, s, vh = linalg.svd(r22, full_matrices=False, overwrite_a=True)
     c = u[:p, :n]
     lh = u[:p*(q-1), :n]
@@ -552,7 +561,7 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
     nwy, p = np.shape(yd)
     nwu, m = np.shape(ud)
     if estTrans:
-        ude = np.concatenate((ud, np.ones((nwu, 1))), 1)
+        ude = np.concatenate((ud, np.asmatrix(z).T), 1)
         me = m + 1
     else:
         ude = ud
@@ -565,14 +574,19 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
         print("Error: z and U sizes does not match!")
         return False
     y = np.empty([p*q, nw], dtype='complex')
-    u = np.empty([me*q, nw], dtype='complex')
+    if estimd:
+        u = np.empty([me*q, nw], dtype='complex')
+    else:
+        u = np.empty([me*(q-1), nw], dtype='complex')
+
     for widx in range(nw):
         y[:p, widx] = yd[widx, :]
         u[:me, widx] = ude[widx, :]
         zx = z[widx]
         for qidx in range(q)[1:]:
             y[qidx*p:(qidx+1)*p, widx] = zx*yd[widx, :]
-            u[qidx*me:(qidx+1)*me, widx] = zx*ude[widx, :]
+            if estimd or qidx<q-1:
+                u[qidx*me:(qidx+1)*me, widx] = zx*ude[widx, :]
             zx *= z[widx]
     if dtype == 'float':
         hu = np.concatenate((np.real(u), np.imag(u)), 1)
@@ -583,7 +597,11 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
     h = np.concatenate((hu, hy))
     r = linalg.qr(h.T, mode='r', overwrite_a=True)  #Calulates the projection
     r = r[0].T
-    r22 = r[me*q:, me*q:]
+    if estimd:
+        r22 = r[me*q:, me*q:]
+    else:
+        r22 = r[me*(q-1):, me*(q-1):]                    
+    
     u, s, vh = linalg.svd(r22, full_matrices=False, overwrite_a=True)
     c = u[:p, :n]
     lh = u[:p*(q-1), :n]
@@ -1173,6 +1191,29 @@ if __name__ == "__main__":
                 return False        
         print('Unit test "fdestim_bd" passed')
         return True
+    def unit_test_fdestim_bd_no_d():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.zeros((p, m))
+            fset = np.arange(0, N, dtype='float')/N
+            w = 2*np.pi*fset
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            zn = np.exp(1j*wn)
+            Be, De, resid = fdestim_bd(zn, Y, U, A, C, estimd=False)
+            fde = fresp(z, A, Be, C, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "fdestim_bd_no_d" failed')
+                return False        
+        print('Unit test "fdestim_bd_no_d" passed')
+        return True
     
     def unit_test_fdestim_bd_cmplx():
         N = 100
@@ -1222,6 +1263,29 @@ if __name__ == "__main__":
                 print('Unit test "fdestim_cd" failed')
                 return False        
         print('Unit test "fdestim_cd" passed')
+        return True
+    def unit_test_fdestim_cd_no_d():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset:
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.zeros((p,m))
+            fset = np.arange(0, N, dtype='float')/N
+            w = 2*np.pi*fset
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            zn = np.exp(1j*wn)
+            Ce, De, resid = fdestim_cd(zn, Y, U, A, B, estimd=False)
+            fde = fresp(z, A, B, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "fdestim_cd_no_d" failed')
+                return False        
+        print('Unit test "fdestim_cd_no_d" passed')
         return True
     
     
@@ -1340,6 +1404,27 @@ if __name__ == "__main__":
                 return False        
         print('Unit test "ffsid" passed')
         return True
+    def unit_test_ffsid_no_d():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+          #  D = np.random.randn(p, m)
+            D = np.zeros((p,m))
+            fset = np.arange(0, N, dtype='float')/N
+            w = 2*np.pi*fset
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            Ae, Be, Ce, De, s =  ffsid(w, fd, n, n+1, dtype='float', estimd=False)
+            fde = fresp(z, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            if err > 1e-8:
+                print('Unit test "ffsid_no_d" failed')
+                return False        
+        print('Unit test "ffsid_no_d" passed')
+        return True
     def unit_test_ffsid_complex():
         N = 100
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
@@ -1385,13 +1470,43 @@ if __name__ == "__main__":
             uf = np.fft.fft(u,axis=0)
             fddata = (w, yf, uf)
             Ae, Be, Ce, De, xt, s =  fdsid(fddata, n, 2*n, 
-                                                estTrans=True, dtype='float')
+                       estTrans=True, dtype='float')
             fde = fresp(z, Ae, Be, Ce, De)
             err = linalg.norm(fd-fde)/linalg.norm(fd)
             if err > 1e-8:
                 print('Unit test "fdsid" failed')
                 return False        
         print('Unit test "fdsid" passed')
+        return True
+    def unit_test_fdsid_no_d():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            lam = linalg.eig(A)[0]
+            rho = np.max( np.abs(lam)) 
+            ## Here we create a random stable DT system
+            A = A/rho/1.01
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.zeros((p, m))
+            fset = np.arange(0, N, dtype='float')/N
+            w = 2*np.pi*fset
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            u = np.random.randn(N, m)
+            y = lsim((A, B, C, D), u, dtype='float')
+            yf = np.fft.fft(y,axis=0)
+            uf = np.fft.fft(u,axis=0)
+            fddata = (w, yf, uf)
+            Ae, Be, Ce, De, xt, s =  fdsid(fddata, n, 2*n, 
+                       estTrans=True, dtype='float', estimd=False)
+            fde = fresp(z, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            if err > 1e-8:
+                print('Unit test "fdsid_no_d" failed')
+                return False        
+        print('Unit test "fdsid_no_d" passed')
         return True
 
     def unit_test_fdsid_cmplx():
@@ -1431,17 +1546,21 @@ if __name__ == "__main__":
 
 
     if (unit_test_fdestim_bd()
+        and unit_test_fdestim_bd_no_d()
         and unit_test_fdestim_cd() 
+        and unit_test_fdestim_cd_no_d() 
         and unit_test_fresp() 
         and unit_test_fresp_def()
         and unit_test_ls_estim_bd() 
         and unit_test_ls_estim_cd() 
         and unit_test_transp_ffdata()
         and unit_test_fdsid()
+        and unit_test_fdsid_no_d()
         and unit_test_fdsid_cmplx()
         and unit_test_ltifr_slow()
         and unit_test_ltifr_def()
         and unit_test_ffsid()
+        and unit_test_ffsid_no_d()
         and unit_test_ffsid_complex()
         and unit_test_bilinear()
         and unit_test_fconv()):
