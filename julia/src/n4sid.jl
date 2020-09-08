@@ -57,8 +57,7 @@ function ffsid(
             ce, de = estimate_cd(ffdata, im*w, a, be; type = type, estimd = estimd)
             be, de = estimate_bd(ffdata, im*w, a, ce; type = type, estimd = estimd)
             ce, de = estimate_cd(ffdata, im*w, a, be; type = type, estimd = estimd)
-        end
-        
+        end       
         return a, be, ce, de, s
     end
 
@@ -125,7 +124,11 @@ function gffsid(
     end
 
     y = zeros(ComplexF64, p*q, nw*m) # G
-    u = zeros(ComplexF64, m*q, nw*m) # W
+    if estimd
+        u = zeros(ComplexF64, m*q, nw*m) # W
+    else
+        u = zeros(ComplexF64, m*(q-1), nw*m) # W
+    end    
     eyem = Matrix{Float64}(I, m, m)
 
     for widx in 1:nw
@@ -135,7 +138,9 @@ function gffsid(
 
         for qidx in 2:q
             y[(qidx-1)*p + 1:qidx*p, (widx-1)*m + 1:widx*m] = zx*ffdata[widx, :, :]
-            u[(qidx-1)*m + 1:qidx*m, (widx-1)*m + 1:widx*m] = zx*eyem
+            if estimd || qidx<q
+                u[(qidx-1)*m + 1:qidx*m, (widx-1)*m + 1:widx*m] = zx*eyem
+            end
             zx *= z[widx]
         end
     end
@@ -150,13 +155,16 @@ function gffsid(
 
     h = [hU; hY]
     r = transpose(qr(transpose(h)).R)
-    r22 = r[m*q+1:end, m*q+1:end]
+    if estimd
+        r22 = r[m*q+1:end, m*q+1:end]
+    else
+        r22 = r[m*(q-1)+1:end, m*(q-1)+1:end]
+    end
     u, s, v = svd(r22)
     c = u[1:p, 1:n]
     lh = u[1:p*(q-1), 1:n]
     rh = u[p+1:p*q, 1:n]
     a = lh\rh
-
     be, de = estimate_bd(ffdata, z, a, c; type=type, estimd=estimd)
     ce, de = estimate_cd(ffdata, z, a, be; type=type, estimd=estimd)
     be, de = estimate_bd(ffdata, z, a, ce; type=type, estimd=estimd)
@@ -319,7 +327,8 @@ function gfdsid(
     nwu, m = size(ud)
 
     if estTrans
-        ude = [ud ones(nwu, 1)]
+        ude = [ud z]
+#        ude = [ud ones(nwu,1)]
         me = m + 1
     else
         ude = ud
@@ -337,8 +346,11 @@ function gfdsid(
     end 
        
     y = Matrix{Complex}(undef, p*q, nw)
-    u = Matrix{Complex}(undef, me*q, nw)
-
+   if estimd
+       u = Matrix{Complex}(undef, me*q, nw)
+   else
+       u = Matrix{Complex}(undef, me*(q-1), nw)
+   end
     for widx in 1:nw
         y[1:p, widx] = yd[widx, :]
         u[1:me, widx] = ude[widx, :]
@@ -346,11 +358,12 @@ function gfdsid(
 
         for qidx in 2:q
             y[(qidx-1)*p + 1:qidx*p, widx] = zx*yd[widx, :]
-            u[(qidx-1)*me + 1:qidx*me, widx] = zx*ude[widx, :]
+            if estimd || qidx<q
+                u[(qidx-1)*me + 1:qidx*me, widx] = zx*ude[widx, :]
+            end
             zx *= z[widx]
         end
     end
-
     if type <: Real
         hu = [real(u) imag(u)]
         hy = [real(y) imag(y)]
@@ -361,9 +374,11 @@ function gfdsid(
 
     h = [hu; hy]
     r = transpose(qr(transpose(h)).R)
-    r22 = r[me*q + 1:end, me*q + 1:end]
-
-
+    if estimd
+        r22 = r[me*q + 1:end, me*q + 1:end]
+    else
+        r22 = r[me*(q-1) + 1:end, me*(q-1) + 1:end]
+    end
     u, s, v = svd(r22)
     c = u[1:p, 1:n]
     lh = u[1:p*(q-1), 1:n]

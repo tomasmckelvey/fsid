@@ -184,7 +184,7 @@ function fdestim_bd(
             end
         end
     else
-        r = zeros(ComplexF64, [nw*p, me*n]) # room for B xt   
+        r = zeros(ComplexF64, nw*p, me*n) # room for B xt   
         for widx in 1:nw
             for midx in 1:me
                 r[p*(widx-1) + 1:p*widx, (n*(midx-1)) + 1:n*midx] = ude[widx, midx] * fkern[:, :, widx] 

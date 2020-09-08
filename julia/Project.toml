@@ -1,7 +1,7 @@
 name = "fsid"
 uuid = "2e1f4868-8d8f-4a5f-a217-6f65c14496e6"
 authors = ["Mladen Gibanica <mgcth@users.noreply.github.com> and Tomas McKelvey <tomas.mckelvey@gmail.com>"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
