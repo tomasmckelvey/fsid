@@ -9,6 +9,53 @@ import numpy as np
 from scipy import linalg
 import fsid 
 
+def example_ffsid_rank():
+    n = 2
+    m = 3
+    p = 4
+    N = 100
+
+    A = np.random.randn(n, n)
+    B = np.random.randn(n, m)
+#    B = B+1j*np.random.randn(n, m)
+    C = np.random.randn(p, n)
+    D = np.random.randn(p, m)
+#    D = D+ 1j*np.random.randn(p, m)
+    fset = np.arange(0, N, dtype='float')/N/2
+    w = 2*np.pi*fset
+    z = np.exp(1j*2*np.pi*fset)
+    ffdata = fsid.fresp(z, A, B, C, D)
+    Ae, Be, Ce, De, s = fsid.gffsid(z, ffdata, n, 2*n, dtype='complex', estimd=True)
+    fde = fsid.fresp(z, Ae, Be, Ce, De)
+    err = linalg.norm(ffdata-fde)/linalg.norm(ffdata)
+    print('|| H-He ||/||H|| = ', err)
+    z2 = np.concatenate((z,np.conj(z)))
+    ffdata2 = np.concatenate((ffdata, np.conj(ffdata)))
+    Ae1, Be1, Ce1, De1, s = fsid.gffsid(z2, ffdata2, n, 2*n, dtype='complex', estimd=True)
+    fde = fsid.fresp(z2, Ae1, Be1, Ce1, De1)
+    err = linalg.norm(ffdata2-fde)/linalg.norm(ffdata2)
+    print('|| H-He ||/||H|| = ', err)
+    return
+
+
+
+    A = np.random.randn(n, n)
+    B = np.random.randn(n, m)
+    C = np.random.randn(p, n)
+    D = np.random.randn(p, m)
+    # Create frequency function
+    fset = np.arange(0, N, dtype='float')/N
+    w = 2*np.pi * fset
+    wexp = np.exp(1j*2 * np.pi * fset)
+    fd = fsid.fresp(wexp, A, B, C, D)
+  
+    # Estimate ss model from ffdata
+    Ae, Be, Ce, De, s = fsid.ffsid(w, fd, n, n*2)
+
+    # Frequency response of estimated model
+    fde = fsid.fresp(wexp, Ae, Be, Ce, De)
+    print('example_ffsid(): || G-Ge ||/||G|| = ', linalg.norm(fd-fde)/linalg.norm(fd))
+
 
 def example_ffsid():
     n = 2
@@ -297,3 +344,59 @@ example_1()
 example_2()
 example_ct_ffsid()
 example_ct_fdsid()
+example_ffsid_rank()
+
+import matplotlib.pyplot as plt
+
+N = 1000
+nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+nmpset = [(10, 5, 5)] 
+for (n, m, p) in nmpset: 
+    A = np.random.randn(n, n)
+    lam = linalg.eig(A)[0]
+    rho = np.max( np.abs(lam)) 
+    ## Here we create a random stable DT system
+    A = A/rho/1.01
+    B = np.random.randn(n, m)
+    C = np.random.randn(p, n)
+    D = np.random.randn(p, m)
+    fset = np.arange(0, N, dtype='float')/N
+    z = np.exp(1j*2*np.pi*fset)
+    fd = fsid.fresp(z, A, B, C, D)
+    u = np.random.randn(N, m)
+    y = fsid.lsim((A, B, C, D), u, dtype='float')
+    ff = fsid.lrm(u, y, n=2,Nw=30)
+#    yf = np.fft.fft(y, axis=0)
+#    uf = np.fft.fft(u, axis=0)
+
+    err = linalg.norm(fd-ff)/linalg.norm(fd)
+    print('||fd-ff||/||fd|',err)
+    plt.plot(20*np.log10(np.abs(fd[:, 0, 0])))
+    plt.plot(20*np.log10(np.abs(ff[:, 0, 0])))    
+    plt.plot(20*np.log10(np.abs(ff[:, 0, 0]-fd[:, 0, 0])))
+    plt.show()
+
+
+N = 100
+A = np.array([[0.9999,1], [0, .9]])
+B = np.array([[0],[1]]) 
+C = np.array([[1, 0]])
+D = np.array([[0],])
+u = np.random.randn(N, 1)
+y = fsid.lsim((A, B, C, D), u, dtype='float')
+
+fset = np.arange(0, N, dtype='float')/N
+z = np.exp(1j*2*np.pi*fset)
+fd = fsid.fresp(z, A, B, C, D)
+u = np.random.randn(N, 1)
+y = fsid.lsim((A, B, C, D), u, dtype='float')
+ff = fsid.lrm(u, y, n=1,Nw=3)
+#    yf = np.fft.fft(y, axis=0)
+#    uf = np.fft.fft(u, axis=0)
+
+err = linalg.norm(fd-ff)/linalg.norm(fd)
+print('||fd-ff||/||fd|',err)
+plt.plot(20*np.log10(np.abs(fd[1:20, 0, 0])))
+plt.plot(20*np.log10(np.abs(ff[1:20, 0, 0])))    
+plt.plot(20*np.log10(np.abs(ff[1:20, 0, 0]-fd[1:20, 0, 0])))
+plt.show()

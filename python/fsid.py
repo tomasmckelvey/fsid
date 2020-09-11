@@ -9,6 +9,52 @@ Created on Sat Dec  9 08:00:56 2017
 import numpy as np
 from scipy import linalg
 
+def lrm(u, y, n=2 , Nw=None):
+    us = np.shape(u)
+    if np.size(us) == 1:
+        m = 1
+        u = np.reshape(u,(us[0],1))
+    else:
+        m = us[1]
+    Nu = us[0]
+    ys = np.shape(y)
+    if np.size(ys) == 1:
+        p = 1
+        y = np.reshape(y,(ys[0],1))
+    else:
+        p = ys[1]
+    Ny = ys[0]            
+    if Nu <> Ny:
+        print("lsim: Incorrect number of matrices in sys.")
+        return False  
+    if Nw == None:
+        Nw = 2*np.int(np.ceil(((m+2)*n+1.0)/2))
+    #print("Nw ",Nw)
+    if Nw <np.int(np.ceil(((m+2)*n+1.0)/2)):
+        print("Error: Nw too small.")
+        return False
+    yf = np.fft.fft(y, axis=0)
+    uf = np.fft.fft(u, axis=0)
+    ff = np.zeros((Ny, p, m), dtype=complex)
+    R = np.vander(np.arange(-Nw,Nw+1),n+1)
+    yfe = np.vstack((yf[-Nw:,:], yf, yf[:Nw] ))
+    ufe = np.vstack((uf[-Nw:,:], uf, uf[:Nw] ))
+    iset = np.arange(-Nw,Nw+1)
+    for i in np.arange(Ny):
+        for pidx in range(p):
+            # A(z) yf = B(z) uf + T(z)
+            yy = yfe[Nw+i+iset,pidx]
+ #           uu = ufe[Nw+i+iset,0]
+            RR = np.hstack((R, np.matmul(np.diag(-yy), R[:,:n])  ))
+            for midx in np.flip(range(m),0):
+                RR = np.hstack((RR, np.matmul(np.diag(ufe[Nw+i+iset, midx]), R)))
+            lsans = linalg.lstsq(RR, yy)
+            ht = lsans[0]
+            ht = np.flip(ht,0)
+            ff[i,pidx,:] = ht[:(n+1)*m:(n+1)] 
+    #print(np.shape(RR))
+    return ff
+            
 
 def ls_estim_cd(ffdata, z, a, b, dtype='float', estimd=True):
     """
@@ -427,15 +473,19 @@ def gffsid(z, ffdata, n, q, dtype='float', estimd=True):
     ce, de = ls_estim_cd(ffdata, z, a, be, dtype, estimd)
     be, de = ls_estim_bd(ffdata, z, a, ce, dtype, estimd)
     ce, de = ls_estim_cd(ffdata, z, a, be, dtype, estimd)
+#    pip = np.eye(m*nw) - np.linalg.multi_dot( [u.T.conj(), np.linalg.inv( np.dot(u , u.T.conj())),  u]) 
+#    x = np.dot(y, pip)
+#    pip, u, R, Gproj = project_fdshape(x, z, p, m, q)
+#    print(np.linalg.norm(Gproj-ffdata))
     return a, be, ce, de, s
 
 
-def fdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, CT=False, T=1):
+def fdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, CT=False, T=1, W=np.empty(0)):
     """    
     Estimate a DT state-space model from I/O frequency data
     
     Determines the (a,b,c,d,xt) parametrers such that (DT case)
-     sum_i   || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]]||^_F
+     sum_i   || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]]||^2_F
     is small where z = np.exp(1j*w)
     and CT Case
      sum_i   ||  y[i,:] - d*u[i, :] + c*inv(1j*w[i]*eye(n)-A)*b* u[i, :] ||^2_F
@@ -490,33 +540,36 @@ def fdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, CT=False, T=1
     ud = fddata[2]
     if CT:
         estTrans=False
-        ad, bd, cd, dd, xt, s  = fdsid((cf2df(w,T), yd, ud), n, q, estTrans=False, dtype=dtype, estimd=True, CT=False, T=T)
+        ad, bd, cd, dd, xt, s  = fdsid((cf2df(w,T), yd, ud), n, q, estTrans=False, dtype=dtype, estimd=True, CT=False, T=T, W=W)
         a, b, c, d = bilinear_d2c((ad, bd, cd, dd), T)
         if not estimd:
-            b, d, resid = fdestim_bd(1j*w, yd, ud, a, c, estTrans, dtype, estimd)
-            c, d, resid = fdestim_cd(1j*w, yd, ud, a, b, 0, estTrans, dtype, estimd)
-            b, d, resid = fdestim_bd(1j*w, yd, ud, a, c, estTrans, dtype, estimd)
-            c, d, resid = fdestim_cd(1j*w, yd, ud, a, b, 0, estTrans, dtype, estimd)
+            b, d, resid = fdestim_bd(1j*w, yd, ud, a, c, estTrans, dtype, estimd, w=W)
+            c, d, resid = fdestim_cd(1j*w, yd, ud, a, b, 0, estTrans, dtype, estimd, w=W)
+            b, d, resid = fdestim_bd(1j*w, yd, ud, a, c, estTrans, dtype, estimd, w=W)
+            c, d, resid = fdestim_cd(1j*w, yd, ud, a, b, 0, estTrans, dtype, estimd, w=W )
             xt = np.zeros((n, 1), dtype)
         return a, b, c, d, xt, s
 
-    return gfdsid((np.exp(1j*w), yd, ud), n, q, estTrans=estTrans, dtype=dtype, estimd=estimd)
+    return gfdsid((np.exp(1j*w), yd, ud), n, q, estTrans=estTrans, dtype=dtype, estimd=estimd, w=W)
 
 
-def gfdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True):
+def gfdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, w=np.empty(0) ):
     """    
     Estimate a state-space model from I/O frequency data
-def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
     
     Determines the (a,b,c,d,xt) parametrers such that 
-     sum_i || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]] ||^2_F
+     sum_i || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]] ||^2_w[i,:,:]
      is minimized 
     If estrTrans=False the following problem is solved
-     sum_i ||y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*b * u[i, :] ||^2_F
+     sum_i ||y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*b * u[i, :] ||^2_w[i,:,:]
      is minimized 
+
+    The weighted norm  || x ||^2_w is defined as  || w * x ||^2 where w is a square matrix such that w*w^H 
+    is a positive definite matrix.  
+    If the noise on y[i,:].T is a zero mean rv with covariance r[i,:,:] a BLUE estimator will be obtained if 
+    w[i,:,:] is selected as linalg.cholesky(linalg.inv(r[i,:,:]])).T.conj()
     
 
-    
     Parameters
     ==========
     fddata : tuple
@@ -537,8 +590,9 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
         if dtype = 'complex' a complex valued solution is returned.
     estimd : boolean, optional
         if set to False no d matrix is esimated and a zero d matrix is returned
-
-        
+    w: matrix like, optional
+        w[i,:,:] is the weighting matrix for data sample i, See above. 
+    
     Returns
     =======
     a  : matrix_like
@@ -578,16 +632,20 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
         u = np.empty([me*q, nw], dtype='complex')
     else:
         u = np.empty([me*(q-1), nw], dtype='complex')
-
+    wf = np.ones((nw,1))
+    if w.size>0:
+        for widx in range(nw):
+            wf[widx] = np.trace(w[widx,:,:])
     for widx in range(nw):
-        y[:p, widx] = yd[widx, :]
-        u[:me, widx] = ude[widx, :]
+        y[:p, widx] = wf[widx]*yd[widx, :]
+        u[:me, widx] = wf[widx]*ude[widx, :]
         zx = z[widx]
         for qidx in range(q)[1:]:
             y[qidx*p:(qidx+1)*p, widx] = zx*yd[widx, :]
             if estimd or qidx<q-1:
                 u[qidx*me:(qidx+1)*me, widx] = zx*ude[widx, :]
             zx *= z[widx]
+            
     if dtype == 'float':
         hu = np.concatenate((np.real(u), np.imag(u)), 1)
         hy = np.concatenate((np.real(y), np.imag(y)), 1)
@@ -609,15 +667,15 @@ def gfdsid(gfddata, n, q, estTrans=True, dtype='float', estimd=True):
     lsres = linalg.lstsq(lh, rh, overwrite_a=True, overwrite_b=True)
     a = lsres[0]
     if estTrans:
-        b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd)
-        c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd)
-        b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd)
-        c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd)
+        b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
+        c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd, w)
+        b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
+        c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd, w)
     else:   
-        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd)
-        c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd)
-        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd)
-        c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd)
+        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd), w
+        c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd, w)
+        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
+        c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd, w)
         xt = np.zeros((n, 1), dtype)
     return a, b, c, d, xt, s
 
@@ -655,34 +713,45 @@ def ltifd(a, b, u, z, noWarning=False):
         return fkern
 
 
-def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True):
-    """Estimate c and d matrices given z, yd, ud and a, c, and (optionally xt) matrices
+def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True, w = np.empty(0)):
+    """Estimate c and d matrices given z, yd, ud and a, b, and (optionally xt) matrices
     
-    Calulates the c and d matrices for a linear dynamic system given the a and b 
-    matrices and samples of rational function data. It solves 
+    Calulates the c and d matrices for a state-space representation of a rational function 
+    given the a and b matrices and samples of the rational matrix function data in the form of 
+    output vectors yd[i,:] and input vectors ud[i,:] corresponding to the rational function 
+    evaluated at complex value z[i]. It solves 
 
     if estimd=True and estTrans=True    
-    min_{c,d} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])[ud[i,:]; z[i]]  - ffdata[i,:,:] |^2_F
+    min_{c,d} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])*[ud[i,:]; z[i]]  - yd[i,:] |^2_w[i,:,:]
 
     if estimd=False and estTrans=True    
-    min_{c} sum_i|| (c*inv(z[i]*I-a)*[b xt])[ud[i,:]; w[i]]  - ffdata[i,:,:] |^2_F
+    min_{c} sum_i|| (c*inv(z[i]*I-a)*[b xt])*[ud[i,:]; z[i]]  - yd[i,:] |^2_w[i,:,:]
 
     if estimd=True and estTrans=False    
-    min_{c,d} sum_i || (d+ c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F
+    min_{c,d} sum_i || (d+ c*inv(z[i]*I-a)*b)*ud[i,:]  - yd[i,:] |^2_w[i,:,:]
 
     if estimd=False and estTrans=False    
-    min_{c} sum_i|| (c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F
+    min_{c} sum_i|| (c*inv(z[i]*I-a)*b)*ud[i,:]  - yd[i,:] |^2_w[i,:,:]
+    
+    The weighted norm  || x ||^2_w is defined as  || w * x ||^2 where w is a square matrix such that w*w^H 
+    is a positive definite matrix.  
+    If the noise on y[i,:].T is a zero mean rv with covariance r[i,:,:] a BLUE estimator will be obtained if 
+    w[i,:,:] is selected as linalg.cholesky(linalg.inv(r[i,:,:]])).T.conj()
+
 
     if dtype='float' a real valued solution is calulated. if dtype='complex' 
     the solution is complex valued
     
     Parameters
     ----------
-    ffdata : matrix_like 
-        frequency data packed in a matrix. fftata[widx,:,:] is the frequency function 
-        matrix corresponding to sample widx
-    w : matrix_like
-        vector with the frequecy data.
+    yd : matrix_like 
+        frequency data packed in a matrix. yd[i,:] is the output vector 
+        corresponding to sample i
+    ud : matrix_like 
+        frequency data packed in a matrix. ud[i,:] is the output vector 
+        corresponding to sample i
+    z : matrix_like
+        vector with the complex data z[i].
     a : matrix_like
         the a matrix
     b : matrix_like
@@ -691,7 +760,9 @@ def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True
         data type of model either 'float' or 'complex'
     estimd : boolean, optional
         if set to False no d matrix is esimated and a zero d matrix is returned
-      
+      w: matrix like, optional
+        w[i,:,:] is the weighting matrix for data sample i, See above. 
+    
     Returns 
     -------
     
@@ -704,64 +775,97 @@ def fdestim_cd(z, yd, ud, a, b, xt=0, estTrans=False, dtype='float', estimd=True
     p = np.shape(yd)[1]
     m = np.shape(ud)[1]
     n = np.shape(a)[0]
-    nw = np.size(z, 0)
+    nz = np.size(z, 0)
     if estTrans == True:
-        ude = np.concatenate((ud, np.array(z).reshape(nw, 1)), 1)
+        ude = np.concatenate((ud, np.array(z).reshape(nz, 1)), 1)
         be = np.concatenate((b, xt.reshape(n, 1)), 1)
     else:
         ude = ud
         be = b
     fkern = ltifd(a, be, ude, z)
     if estimd:
-        r = np.empty((n+m, nw), dtype='complex')
+        r = np.empty((n+m, nz), dtype='complex')
         r[:n, :] = fkern
         r[n:, :] = np.transpose(ud)
     else:
-        r = fkern
-        
-    if dtype == 'float':
-        rh = np.concatenate([np.real(r), np.imag(r)], 1)
-        lh = np.concatenate([np.real(yd), np.imag(yd)], 0)
+        r = fkern            
+    if w.size>0:
+        nr = np.size(r,0)
+        rw = np.empty((p*nz, nr*p), dtype='complex')
+        ydw = np.empty((p*nz), dtype='complex')
+        for zidx in range(nz): #Vectorize data and apply pre-whitening filter
+            ydw[p*zidx:p*(zidx+1)] = np.matmul(w[zidx,:,:], yd[zidx,:])
+            rw[p*zidx:p*(zidx+1),:] = np.kron(r[:,zidx].T, w[zidx,:,:])
+            
+        if dtype == 'float':
+            lh = np.concatenate([np.real(ydw), np.imag(ydw)], 0)
+            rh = np.concatenate([np.real(rw), np.imag(rw)], 0)
+        else:
+            lh = ydw
+            rh = rw
+        lsres = linalg.lstsq(rh, lh)
+        vecCD = lsres[0]
+        c = np.reshape(vecCD[:n*p], (p, n), order='F')
+        if estimd:
+            return c, np.reshape(vecCD[n*p:], (p, m), order='F'), lsres[1]
+        else:
+            return c , np.zeros((p, m), dtype), lsres[1] # Return c and d and residuals    
     else:
-        lh = yd
-        rh = r
-    lsres = linalg.lstsq(rh.T, lh)
-    cd = lsres[0].T
-    if estimd:
-        return cd[:, :n], cd[:, n:], lsres[1] # Return c and d and residuals
-    else:
-        return cd, np.zeros((p, m), dtype), lsres[1] # Return c and d and residuals
+        if dtype == 'float':
+            rh = np.concatenate([np.real(r), np.imag(r)], 1)
+            lh = np.concatenate([np.real(yd), np.imag(yd)], 0)
+        else:
+            lh = yd
+            rh = r
+        lsres = linalg.lstsq(rh.T, lh)
+        cd = lsres[0].T
+        if estimd:
+            return cd[:, :n], cd[:, n:], lsres[1] # Return c and d and residuals
+        else:
+            return cd, np.zeros((p, m), dtype), lsres[1] # Return c and d and residuals
+
+        if estimd:
+            return cd[:, :n], cd[:, n:], lsres[1] # Return c and d and residuals
+        else:
+            return cd, np.zeros((p, m), dtype), lsres[1] # Return c and d and residuals
         
-def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True):
-    """Estimate B and D matrices ( and optionally xt) given yd and ud and a and c matrices
+def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True, w = np.empty(0)):
+    """Estimate b and d (and optionally xt) matrices given z, yd, ud and a, c matrices
     
-    Calulates the b and d matrices (and optimally xt) for a linear dynamic system given the a and c 
-    matrices and samples of frequency domain function data. It solves 
+    Calulates the b and d (and optionally xt) matrices for a state-space representation of 
+    a rational function 
+    given the a and b matrices and samples of the rational matrix function data in the form of 
+    output vectors yd[i,:] and input vectors ud[i,:] corresponding to the rational function 
+    evaluated at complex value z[i]. It solves 
     
     if estimd=True and estTrans=True    
-    min_{b,d,xt} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])[ud[i,:]; z[i]]  - ffdata[i,:,:] |^2_F
+    min_{b,d,xt} sum_i || ([d 0] + c*inv(z[i]*I-a)*[b xt])[ud[i,:]; z[i]]  - yd[i,:] ||^2_w[i,:,:]
 
     if estimd=False and estTrans=True    
-    min_{b,xt} sum_i|| (c*inv(z[i]*I-a)*[b xt])[ud[i,:]; w[i]]  - ffdata[i,:,:] |^2_F
+    min_{b,xt} sum_i|| (c*inv(z[i]*I-a)*[b xt])[ud[i,:]; z[i]]  - yd[i,:] ||^2_w[i,:,:]
 
     if estimd=True and estTrans=False    
-    min_{b,d} sum_i || (d+ c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F
+    min_{b,d} sum_i || (d+ c*inv(z[i]*I-a)*b)ud[i,:]  - yd[i,:] ||^2_w[i,:,:]
 
     if estimd=False and estTrans=False    
-    min_{b} sum_i|| (c*inv(z[i]*I-a)*b)ud[i,:]  - ffdata[i,:,:] |^2_F
+    min_{b} sum_i|| (c*inv(z[i]*I-a)*b)ud[i,:]  - yd[i,:] ||^2_w[i,:,:]
 
+    The weighted norm  || x ||^2_w is defined as  || w * x ||^2 where w is a square matrix such that w*w^H 
+    is a positive definite matrix.  
+    If the noise on y[i,:].T is zero mean rv with covariance r[i,:,:] a BLUE estimator will be obtained if 
+    w[i,:,:] is selected as linalg.cholesky(linalg.inv(r[i,:,:]])).T.conj()
 
-    if dtype='float' a real valued solution is calulated. if dtype='complex' 
+    if dtype='float' a real valued solution is calulated (default). if dtype='complex' 
     the solution is complex valued
     
     Parameters
     ----------
-    w : matrix_like
-        vector with the frequecy data.
+    z : matrix_like
+        vector with the rational function evaluation points z[i].
     yd : matrix like
-        output frequency data yd[widx,:]    
+        output frequency data yd[i,:]    
     ud : matrix like
-        input frequency data ud[widx,:]    
+        input frequency data ud[i,:]    
     a : matrix_like
         the a matrix
     c : matrix_like
@@ -772,7 +876,8 @@ def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True):
         data type of model either 'float' or 'complex'
     estimd : boolean, optional
         if set to False no d matrix is esimated and a zero d matrix is returned
-      
+    w: matrix like, optional
+        w[i,:,:] is the weighting matrix for data sample i, See above. 
     Returns 
     -------
     
@@ -786,9 +891,15 @@ def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True):
     p = np.shape(yd)[1]
     m = np.shape(ud)[1]
     n = np.shape(a)[0]
-    nw = np.size(z, 0)
+    nz = np.size(z, 0)
+    if w.size>0:
+        ydw = np.empty((nz,p),dtype='complex')
+        for zidx in range(nz):
+            ydw[zidx,:] = np.matmul(w[zidx,:,:], yd[zidx,:])
+    else:
+        ydw = yd
     if estTrans == True:
-        ude = np.concatenate((ud, np.array(z).reshape(nw, 1)), 1)
+        ude = np.concatenate((ud, np.array(z).reshape(nz, 1)), 1)
  #       ude = np.concatenate((ud, np.ones((NwU, 1))), 1)
         me = m + 1
     else:
@@ -796,25 +907,39 @@ def fdestim_bd(z, yd, ud, a, c, estTrans=False, dtype='float', estimd=True):
         me = m
 
     fkern = ltifr(a.T, c.T, z).T
-
     if estimd:        
-        r = np.empty([nw*p, me*n+m*p], dtype='complex') #room for B xt and D    
-        for widx in range(nw):
-            for midx in range(me):
-                r[p*widx:p*(widx+1), n*midx:n*(midx+1)] = ude[widx, midx] * fkern[:, :, widx]
-            for midx in range(m):
-                r[p*widx:p*(widx+1), me*n+p*midx:me*n+p*(midx+1)] = ud[widx, midx] * np.eye(p)
+        r = np.empty([nz*p, me*n+m*p], dtype='complex') #room for B xt and D  
+        if w.size>0:
+            for zidx in range(nz):
+                for midx in range(me):
+                    r[p*zidx:p*(zidx+1), n*midx:n*(midx+1)] = np.matmul(
+                            w[zidx,:,:], ude[zidx, midx] * fkern[:, :, zidx])
+                for midx in range(m):
+                    r[p*zidx:p*(zidx+1), me*n+p*midx:me*n+p*(midx+1)] = np.matmul(
+                            w[zidx,:,:], ud[zidx, midx] * np.eye(p))
+        else:
+            for zidx in range(nz):
+                for midx in range(me):
+                    r[p*zidx:p*(zidx+1), n*midx:n*(midx+1)] = ude[zidx, midx] * fkern[:, :, zidx]
+                for midx in range(m):
+                    r[p*zidx:p*(zidx+1), me*n+p*midx:me*n+p*(midx+1)] = ud[zidx, midx] * np.eye(p)
     else:
-        r = np.empty([nw*p, me*n], dtype='complex') #room for B xt     
-        for widx in range(nw):
-            for midx in range(me):
-                r[p*widx:p*(widx+1), n*midx:n*(midx+1)] = ude[widx, midx] * fkern[:, :, widx]        
+        r = np.empty([nz*p, me*n], dtype='complex') #room for B xt     
+        if w.size>0:
+            for zidx in range(nz):
+                for midx in range(me):
+                    r[p*zidx:p*(zidx+1), n*midx:n*(midx+1)] = np.matmul(
+                            w[zidx,:,:], ude[zidx, midx] * fkern[:, :, zidx])        
+        else:
+            for zidx in range(nz):
+                for midx in range(me):
+                    r[p*zidx:p*(zidx+1), n*midx:n*(midx+1)] = ude[zidx, midx] * fkern[:, :, zidx]        
     if dtype == 'float':
         rh = np.concatenate([np.real(r), np.imag(r)], 0)
-        lh = np.concatenate([np.real(yd.flatten()), np.imag(yd.flatten())], 0)
+        lh = np.concatenate([np.real(ydw.flatten()), np.imag(ydw.flatten())], 0)
     else:
         rh = r
-        lh = yd.flatten()
+        lh = ydw.flatten()
     lsres = linalg.lstsq(rh, lh)
     vecBD = lsres[0]
     vecB = vecBD[:n*me]
@@ -934,7 +1059,7 @@ def lsim(sys, u, x0=0, dtype='float'):
     y : array_like
         the resulting output sequence of size (N,p)   """
         
-    nn = np.shape(sys)[0]
+    nn = len(sys)
     if nn == 3:
         a, b, c = sys
         p, nc = np.shape(c)
@@ -1010,6 +1135,72 @@ def cf2df(wc,T):
 def df2cf(wd,T):
     """ Calculates the bilinear transformation frequency mapping D->C for frequency vector wd """
     return 2*np.tan(wd/2)/T
+
+def vec(a):
+    """ Vectorize a matrix  
+    
+    Input
+    =====
+    a : matrix (ndarray)
+    
+    Returns
+    =======
+        A vector with all columns in a concatenated to one long vector
+    """    
+    return np.reshape(a,np.size(a), order='F')
+
+def moebius(sys, par = (1, 0, 0, 1)):
+    """ Calculates the bilinear transformation D->C for ss-system sys """
+    a, b, c, d = sys
+    alpha, beta, gamma, delta = par
+    n =  np.shape(a)[0]
+    ainv = np.linalg.inv(alpha*np.eye(n)-gamma*a)
+    ac = np.dot(delta*a-beta*np.eye(n), ainv)
+    bc = (alpha*delta-gamma*beta)*np.dot(ainv, b)
+    cc = np.dot(c, ainv)
+    dc = d + gamma*np.linalg.multi_dot([c, ainv, b]) 
+    return ac, bc, cc, dc
+
+def moebius_arg(z, par = (1, 0, 0, 1)):
+    alpha, beta, gamma, delta = par
+    nz = np.shape(z)[0]
+    s = np.empty(nz, dtype=complex)
+    for idx in np.arange(nz):
+        s[idx]= (alpha*z[idx]+beta)/(gamma*z[idx]+delta)
+    return s
+
+def moebius_inv(sys, par = (1, 0, 0, 1)):
+    """ Calculates the bilinear transformation D->C for ss-system sys """
+    a, b, c, d = sys
+    alpha, beta, gamma, delta = par
+    n =  np.shape(a)[0]
+    ainv = np.linalg.inv(delta*np.eye(n)+gamma*a)
+    ac = np.dot((alpha*a +beta*np.eye(n)), ainv)
+    bc = np.dot(ainv, b)
+    cc = -(gamma*beta-alpha*delta)*np.dot(c, ainv)
+    dc = d - gamma*np.linalg.multi_dot([c, ainv, b]) 
+    return ac, bc, cc, dc
+    alpha, beta, gamma, delta = par
+
+def moebius_arg_inv(s, par = (1, 0, 0, 1)):
+    alpha, beta, gamma, delta = par
+    nz = np.shape(s)[0]
+    z = np.empty(nz, dtype=complex)
+    for idx in np.arange(nz):
+        z[idx]= (beta-delta*s[idx])/(gamma*s[idx]-alpha)
+    return z
+
+def uq_cond(z, q):
+    m = 1
+    nw = np.size(z, 0)
+    u = np.empty([m*q, nw*m], dtype='complex')
+    for widx in range(nw):
+        u[:m, widx*m:(widx+1)*m] = np.eye(m)
+        zx = z[widx]
+        for qidx in range(q)[1:]:
+            u[qidx*m:(qidx+1)*m, widx*m:(widx+1)*m] = zx*np.eye(m)
+            zx *= z[widx]
+    return np.linalg.cond(u)
 
 if __name__ == "__main__":
 
@@ -1191,6 +1382,45 @@ if __name__ == "__main__":
                 return False        
         print('Unit test "fdestim_bd" passed')
         return True
+
+    def unit_test_fdestim_bd_w():
+        N = 100 
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.random.randn(p, m)
+            W = np.empty((N*m,p,p));
+            for nidx in range(N*m):
+                W[nidx,:,:] = np.random.randn(p,p)
+            fset = np.arange(0, N, dtype='float')/N
+            w = 2*np.pi*fset
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            zn = np.exp(1j*wn)
+            Be, De, resid = fdestim_bd(zn, Y, U, A, C, w=W)
+            fde = fresp(z, A, Be, C, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "fdestim_bd_w" failed')
+                return False        
+            B = np.random.randn(n, m)+1j*np.random.randn(n, m)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            zn = np.exp(1j*wn)
+            Be, De, resid = fdestim_bd(zn, Y, U, A, C, dtype=complex, w=W)
+            fde = fresp(z, A, Be, C, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "fdestim_bd_w" failed')
+                return False        
+        print('Unit test "fdestim_bd_w" passed')
+        return True
+
     def unit_test_fdestim_bd_no_d():
         N = 100
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
@@ -1214,6 +1444,7 @@ if __name__ == "__main__":
                 return False        
         print('Unit test "fdestim_bd_no_d" passed')
         return True
+
     
     def unit_test_fdestim_bd_cmplx():
         N = 100
@@ -1264,6 +1495,7 @@ if __name__ == "__main__":
                 return False        
         print('Unit test "fdestim_cd" passed')
         return True
+
     def unit_test_fdestim_cd_no_d():
         N = 100
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
@@ -1286,6 +1518,47 @@ if __name__ == "__main__":
                 print('Unit test "fdestim_cd_no_d" failed')
                 return False        
         print('Unit test "fdestim_cd_no_d" passed')
+        return True
+    
+    
+
+    def unit_test_fdestim_cd_w():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset:
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.random.randn(p, m)
+            W = np.empty((N*m,p,p));                        
+            for nidx in range(N*m):
+                W[nidx,:,:] = np.random.randn(p,p)
+            fset = np.arange(0, N, dtype='float')/N
+            w = 2*np.pi*fset
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            zn = np.exp(1j*wn)
+            Ce, De, resid = fdestim_cd(zn, Y, U, A, B, w=W)
+            fde = fresp(z, A, B, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "fdestim_cd_w" failed')
+                return False        
+            C = np.random.randn(p, n)+1j*np.random.randn(p, n)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            zn = np.exp(1j*wn)
+            Ce, De, resid = fdestim_cd(zn, Y, U, A, B, dtype='complex', w=W)
+            fde = fresp(z, A, B, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "fdestim_cd_w" failed')
+                return False        
+
+        print('Unit test "fdestim_cd_w" passed')
         return True
     
     
@@ -1352,21 +1625,32 @@ if __name__ == "__main__":
     
     def unit_test_bilinear():
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        T = 2
         for (n, m, p) in nmpset: 
             A = np.random.randn(n, n)
             B = np.random.randn(n, m)
             C = np.random.randn(p, n)
             D = np.random.randn(p, m)
-            a, b, c, d = bilinear_c2d((A, B, C, D), 2)
-            Ae, Be, Ce, De = bilinear_d2c((a, b, c, d), 2)
+            a, b, c, d = bilinear_c2d((A, B, C, D), T)
+            Ae, Be, Ce, De = bilinear_d2c((a, b, c, d), T)
             err = (linalg.norm(A-Ae)/linalg.norm(A) + 
                 linalg.norm(B-Be)/linalg.norm(B) + 
                 linalg.norm(C-Ce)/linalg.norm(C) +
                 linalg.norm(D-De)/linalg.norm(D))
             if err > 1e-8:
-                print('Unit test "bilinear" failed err=', err)
+                print('Unit test "bilinear 1" failed err=', err)
                 return False        
-        print('Unit test "bilinear" passed')
+            N = 100
+            fset = np.arange(0, N, dtype='float')/N
+            s = 1j*2*np.pi*fset
+            z = np.exp(1j*cf2df(2*np.pi*fset,T))
+            Hc = fresp(s, A, B, C, D)
+            Hd = fresp(z, a, b, c, d)
+            err = linalg.norm(Hc-Hd)/linalg.norm(Hc) 
+            if err > 1e-8:
+                print('Unit test "bilinear 2" failed err=', err)
+                return False        
+        print('Unit test "bilinear 1 and 2" passed')
         return True   
 
     def unit_test_fconv():
@@ -1476,6 +1760,16 @@ if __name__ == "__main__":
             if err > 1e-8:
                 print('Unit test "fdsid" failed')
                 return False        
+            W = np.random.randn(N,p,p)
+#            for idx in range(N):
+#                W[idx,:,:] = np.eye(p)
+            Ae, Be, Ce, De, xt, s =  fdsid(fddata, n, 2*n, 
+                                                estTrans=True, dtype='float', W=W)
+            fde = fresp(z, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            if err > 1e-8:
+                print('Unit test "fdsid with weighting" failed')
+                return False        
         print('Unit test "fdsid" passed')
         return True
     def unit_test_fdsid_no_d():
@@ -1537,18 +1831,110 @@ if __name__ == "__main__":
             fde = fresp(z, Ae, Be, Ce, De)
             err = linalg.norm(fd-fde)/linalg.norm(fd)
             if err > 1e-8:
-                print('Unit test "fdsid cmplx" failed')
+                print('Unit test "fdsid_cmplx" failed')
                 return False        
-        print('Unit test "fdsid complex" passed')
+            W = np.random.randn(N,p,p)
+#            for idx in range(N):
+#                W[idx,:,:] = np.eye(p)
+            Ae, Be, Ce, De, xt, s =  fdsid(fddata, n, 2*n, 
+                                                estTrans=True, dtype='complex', W=W)
+            fde = fresp(z, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            if err > 1e-8:
+                print('Unit test "fdsid_complex with weighting" failed')
+                return False        
+        print('Unit test "fdsid_complex" passed')
         return True
+    
+    def unit_test_lrm():
+        N = 500
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            lam = linalg.eig(A)[0]
+            rho = np.max( np.abs(lam)) 
+            ## Here we create a random stable DT system
+            A = A/rho/1.01
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.random.randn(p, m)
+            fset = np.arange(0, N, dtype='float')/N
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            u = np.random.randn(N, m)
+            y = lsim((A, B, C, D), u, dtype='float')
+            ff = lrm(u,y)
+            err = linalg.norm(fd-ff)/linalg.norm(fd)
+            if err > 1e-4:
+                print('Unit test "lrm2" failed')
+                return False        
+        print('Unit test "lrm2" passed')
+        return True
+
+    def unit_test_moebius():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        sset = np.random.randn(N)+1j*np.random.randn(N)
+        par = np.random.randn(4)+1j*np.random.randn(4)
+        zset = moebius_arg_inv(sset, par)
+        sset1 = moebius_arg(zset, par)
+        if linalg.norm(sset-sset1)/linalg.norm(sset)>1e-8:
+            print('Unit test "moebius 0" failed')
+            return False        
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.random.randn(p, m)
+            zset = np.random.randn(N)+1j*np.random.randn(N)
+            par = np.random.randn(4)+1j*np.random.randn(4)
+            sset = moebius_arg(zset, par)
+            fd = fresp(sset, A, B, C, D)
+            Ae, Be, Ce, De = moebius((A,B,C,D), par)
+            fde = fresp(zset, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "moebius 1" failed')
+                print('err= ',err)
+                return False        
+            sset = np.random.randn(N)+1j*np.random.randn(N)
+            zset = moebius_arg_inv(sset, par)
+            fd = fresp(zset, A, B, C, D)
+            Ae, Be, Ce, De = moebius_inv((A,B,C,D), par)
+            fde = fresp(sset, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "moebius 2" failed')
+                print('err= ',err)
+                return False        
+            Ae, Be, Ce, De = moebius((A,B,C,D), par)
+            a, b, c, d = moebius_inv((Ae,Be,Ce,De), par)
+            sys = (a,b,c,d)
+            sys0 = (A,B,C,D)
+            err = 0
+            for idx in np.arange(4):
+                err += linalg.norm(sys[idx]-sys0[idx])/linalg.norm(sys0[idx])
+            if err > 1e-8:
+                print('Unit test "moebius 3" failed')
+                print('err= ',err)
+                return False        
+                       
+        print('Unit test "moebius" passed')
+        return True
+
+
     
 # Run the unit tests
 
 
     if (unit_test_fdestim_bd()
         and unit_test_fdestim_bd_no_d()
+        and unit_test_fdestim_bd_w()
         and unit_test_fdestim_cd() 
         and unit_test_fdestim_cd_no_d() 
+        and unit_test_fdestim_cd_w() 
         and unit_test_fresp() 
         and unit_test_fresp_def()
         and unit_test_ls_estim_bd() 
@@ -1563,7 +1949,8 @@ if __name__ == "__main__":
         and unit_test_ffsid_no_d()
         and unit_test_ffsid_complex()
         and unit_test_bilinear()
-        and unit_test_fconv()):
+        and unit_test_fconv()
+        and unit_test_lrm()
+        and unit_test_moebius()):
         print("All unit tests passed")
-            
-    
+        
