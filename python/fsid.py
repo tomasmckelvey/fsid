@@ -641,9 +641,9 @@ def gfdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, w=np.empty(0
         u[:me, widx] = wf[widx]*ude[widx, :]
         zx = z[widx]
         for qidx in range(q)[1:]:
-            y[qidx*p:(qidx+1)*p, widx] = zx*yd[widx, :]
+            y[qidx*p:(qidx+1)*p, widx] = wf[widx]*zx*yd[widx, :]
             if estimd or qidx<q-1:
-                u[qidx*me:(qidx+1)*me, widx] = zx*ude[widx, :]
+                u[qidx*me:(qidx+1)*me, widx] = wf[widx]*zx*ude[widx, :]
             zx *= z[widx]
             
     if dtype == 'float':
@@ -1772,6 +1772,7 @@ if __name__ == "__main__":
                 return False        
         print('Unit test "fdsid" passed')
         return True
+    
     def unit_test_fdsid_no_d():
         N = 100
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
