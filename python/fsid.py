@@ -1132,7 +1132,58 @@ def vec(a):
     """    
     return np.reshape(a,np.size(a), order='F')
 
+def moebius(sys, par = (1, 0, 0, 1)):
+    """ Calculates the bilinear transformation D->C for ss-system sys """
+    a, b, c, d = sys
+    alpha, beta, gamma, delta = par
+    n =  np.shape(a)[0]
+    ainv = np.linalg.inv(alpha*np.eye(n)-gamma*a)
+    ac = np.dot(delta*a-beta*np.eye(n), ainv)
+    bc = (alpha*delta-gamma*beta)*np.dot(ainv, b)
+    cc = np.dot(c, ainv)
+    dc = d + gamma*np.linalg.multi_dot([c, ainv, b]) 
+    return ac, bc, cc, dc
 
+def moebius_arg(z, par = (1, 0, 0, 1)):
+    alpha, beta, gamma, delta = par
+    nz = np.shape(z)[0]
+    s = np.empty(nz, dtype=complex)
+    for idx in np.arange(nz):
+        s[idx]= (alpha*z[idx]+beta)/(gamma*z[idx]+delta)
+    return s
+
+def moebius_inv(sys, par = (1, 0, 0, 1)):
+    """ Calculates the bilinear transformation D->C for ss-system sys """
+    a, b, c, d = sys
+    alpha, beta, gamma, delta = par
+    n =  np.shape(a)[0]
+    ainv = np.linalg.inv(delta*np.eye(n)+gamma*a)
+    ac = np.dot((alpha*a +beta*np.eye(n)), ainv)
+    bc = np.dot(ainv, b)
+    cc = -(gamma*beta-alpha*delta)*np.dot(c, ainv)
+    dc = d - gamma*np.linalg.multi_dot([c, ainv, b]) 
+    return ac, bc, cc, dc
+    alpha, beta, gamma, delta = par
+
+def moebius_arg_inv(s, par = (1, 0, 0, 1)):
+    alpha, beta, gamma, delta = par
+    nz = np.shape(s)[0]
+    z = np.empty(nz, dtype=complex)
+    for idx in np.arange(nz):
+        z[idx]= (beta-delta*s[idx])/(gamma*s[idx]-alpha)
+    return z
+
+def uq_cond(z, q):
+    m = 1
+    nw = np.size(z, 0)
+    u = np.empty([m*q, nw*m], dtype='complex')
+    for widx in range(nw):
+        u[:m, widx*m:(widx+1)*m] = np.eye(m)
+        zx = z[widx]
+        for qidx in range(q)[1:]:
+            u[qidx*m:(qidx+1)*m, widx*m:(widx+1)*m] = zx*np.eye(m)
+            zx *= z[widx]
+    return np.linalg.cond(u)
 
 if __name__ == "__main__":
 
@@ -1701,6 +1752,60 @@ if __name__ == "__main__":
         print('Unit test "lrm2" passed')
         return True
 
+    def unit_test_moebius():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        sset = np.random.randn(N)+1j*np.random.randn(N)
+        par = np.random.randn(4)+1j*np.random.randn(4)
+        zset = moebius_arg_inv(sset, par)
+        sset1 = moebius_arg(zset, par)
+        if linalg.norm(sset-sset1)/linalg.norm(sset)>1e-8:
+            print('Unit test "moebius 0" failed')
+            return False        
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.random.randn(p, m)
+            zset = np.random.randn(N)+1j*np.random.randn(N)
+            par = np.random.randn(4)+1j*np.random.randn(4)
+            sset = moebius_arg(zset, par)
+            fd = fresp(sset, A, B, C, D)
+            Ae, Be, Ce, De = moebius((A,B,C,D), par)
+            fde = fresp(zset, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "moebius 1" failed')
+                print('err= ',err)
+                return False        
+            sset = np.random.randn(N)+1j*np.random.randn(N)
+            zset = moebius_arg_inv(sset, par)
+            fd = fresp(zset, A, B, C, D)
+            Ae, Be, Ce, De = moebius_inv((A,B,C,D), par)
+            fde = fresp(sset, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            # print('|| H-He ||/||H|| = ', err)
+            if err > 1e-8:
+                print('Unit test "moebius 2" failed')
+                print('err= ',err)
+                return False        
+            Ae, Be, Ce, De = moebius((A,B,C,D), par)
+            a, b, c, d = moebius_inv((Ae,Be,Ce,De), par)
+            sys = (a,b,c,d)
+            sys0 = (A,B,C,D)
+            err = 0
+            for idx in np.arange(4):
+                err += linalg.norm(sys[idx]-sys0[idx])/linalg.norm(sys0[idx])
+            if err > 1e-8:
+                print('Unit test "moebius 3" failed')
+                print('err= ',err)
+                return False        
+                       
+        print('Unit test "moebius" passed')
+        return True
+
+
     
 # Run the unit tests
 
@@ -1722,6 +1827,7 @@ if __name__ == "__main__":
         and unit_test_ffsid_complex()
         and unit_test_bilinear()
         and unit_test_fconv()
-        and unit_test_lrm()):
+        and unit_test_lrm()
+        and unit_test_moebius()):
         print("All unit tests passed")
         
