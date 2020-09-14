@@ -24,7 +24,7 @@ def lrm(u, y, n=2 , Nw=None):
     else:
         p = ys[1]
     Ny = ys[0]            
-    if Nu <> Ny:
+    if Nu != Ny:
         print("lsim: Incorrect number of matrices in sys.")
         return False  
     if Nw == None:
