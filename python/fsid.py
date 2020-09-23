@@ -672,7 +672,7 @@ def gfdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, w=np.empty(0
         b, d, xt, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
         c, d, resid = fdestim_cd(z, yd, ud, a, b, xt, estTrans, dtype, estimd, w)
     else:   
-        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd), w
+        b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
         c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd, w)
         b, d, resid = fdestim_bd(z, yd, ud, a, c, estTrans, dtype, estimd, w)
         c, d, resid = fdestim_cd(z, yd, ud, a, b, 0, estTrans, dtype, estimd, w)
@@ -1773,6 +1773,42 @@ if __name__ == "__main__":
         print('Unit test "fdsid" passed')
         return True
     
+    def unit_test_fdsid_noTrans():
+        N = 100
+        nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset: 
+            A = np.random.randn(n, n)
+            B = np.random.randn(n, m)
+            C = np.random.randn(p, n)
+            D = np.random.randn(p, m)
+            fset = np.arange(0, N, dtype='float')/N
+            w = 2*np.pi*fset
+            z = np.exp(1j*2*np.pi*fset)
+            fd = fresp(z, A, B, C, D)
+            U, Y, wn = ffdata2fddata(fd, w)
+            fddata = (wn, Y, U)
+            Ae, Be, Ce, De, xt, s =  fdsid(fddata, n, 2*n, 
+                       estTrans=False, dtype='float')
+            fde = fresp(z, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            if err > 1e-8:
+                print('Unit test "fdsid_noTrans" failed')
+                return False        
+            W = np.random.randn(N*m,p,p)
+#            for idx in range(N):
+#                W[idx,:,:] = np.eye(p)
+            Ae, Be, Ce, De, xt, s =  fdsid(fddata, n, 2*n, 
+                                                estTrans=False, dtype='float', W=W)
+            fde = fresp(z, Ae, Be, Ce, De)
+            err = linalg.norm(fd-fde)/linalg.norm(fd)
+            if err > 1e-8:
+                print('Unit test "fdsid_notrans with weighting" failed')
+                return False        
+        print('Unit test "fdsid_notrans" passed')
+        return True
+            
+
+    
     def unit_test_fdsid_no_d():
         N = 100
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
@@ -1942,6 +1978,7 @@ if __name__ == "__main__":
         and unit_test_ls_estim_cd() 
         and unit_test_transp_ffdata()
         and unit_test_fdsid()
+        and unit_test_fdsid_noTrans()
         and unit_test_fdsid_no_d()
         and unit_test_fdsid_cmplx()
         and unit_test_ltifr_slow()
