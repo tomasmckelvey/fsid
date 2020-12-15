@@ -55,7 +55,131 @@ def lrm(u, y, n=2 , Nw=None):
     #print(np.shape(RR))
     return ff
             
+def kung_realization(mp, n, q=0):
+    """
+        Calulates the state-space realization (a,b,c) from Markov parameters 
+        using Kung's relization algorithm' 
 
+    Parameters
+    ----------
+    m : array of size(N,p,m) where N>=2n
+        Array of Marov parameters m[i,j-1,k-1] hold row j 
+        and column k of the Markov parameter of sample i  
+    n : integer
+        Model order state-space system.
+    q : integer, optional
+        Number of rows in Hankel matrix. The default is n+1.
+
+    Returns
+    -------
+    tuple (a,b,c).
+
+    """
+    if q==0:
+        q=n+1
+    N = np.size(mp, 0)
+    p = np.size(mp, 1)
+    m = np.size(mp, 2)
+    ncol = N-q+1
+    if ncol<n:
+        print("n, q and N are not compatible. N>=q+n-1 must be satisfied")
+        return False
+    H = np.empty((p*q, ncol*m), dtype=type(mp[0,0,0]))
+    for j in range(ncol):
+        for i in range(q):
+            H[i*p:(i+1)*p, j*m:(j+1)*m] =mp[i+j, :, :]
+    u, s, vh = linalg.svd(H, full_matrices=False, overwrite_a=True)
+    c = u[:p, :n]
+    lh = u[:p*(q-1), :n]
+    rh = u[p:, :n]
+    lsres = linalg.lstsq(lh, rh, overwrite_a=True, overwrite_b=True)
+    a = lsres[0]
+    b = np.dot(np.diag(s[:n]), vh[:n,:m]) 
+    return a, b, c
+    
+def markov(sys, N):
+    """
+    Calculate markov parameters from sys = (a,b,c)
+
+    Parameters
+    ----------
+    sys : tuple
+        (a,b,c) state-space matrices.
+    N : integer
+        numer of Markov parameters to generate.
+
+    Returns
+    -------
+    mp : array
+        mp[i,:,;] is Markov parameter C(A^i)B.
+    """    
+    (a, b, c) = sys[:3]
+    n = np.size(a, 0)
+    m = np.size(b, 1)
+    p = np.size(c, 0)
+    mp = np.empty((N, p, m), dtype=type(a[0,0]))
+    aa = np.eye(n, dtype=type(a[0,0]))
+    for i in range(N):
+        mp[i, :, :] = np.dot(c, np.dot(aa, b))
+        aa = np.dot(aa, a)
+    return mp
+
+def make_sys_real(sys):
+    """
+    Convert realization sys into a real-valued realization 
+
+    Parameters
+    ----------
+    sys : tuple
+        sys = (a, b, c) or sys =  (a, b, c, d)
+
+    Returns
+    -------
+    sysr : tuple
+        sysr = (ar, br, cr, dr) the realization with real valued matrices
+
+    """
+    a, b, c = sys[:3]
+    n = np.size(a,0)
+    mp = markov(sys, 2*n )
+    mpr = np.real(mp)
+    a, b, c = kung_realization(mpr, n) 
+    if len(sys)==3:
+        return (a, b, c)
+    else:
+        return (a, b, c, np.real(sys[3]))
+
+def make_obs_real(a,c):
+    """
+    Convert (a,c) into real-valued matrices by approximating a real valued
+    observability range space to the original one
+
+    Parameters
+    ----------
+    a : matrix
+    b : matrix 
+
+    Returns
+    -------
+    ar, br  : tuple
+        the real valued matrices
+
+    """
+    n = np.size(a,0)
+    p = np.size(c,0)
+    obs = np.empty((p*(n+1), n), dtype='complex')
+    obs[0:p, :] = c
+    for i in range(n):
+        obs[p*(i+1):p*(i+2), :] = np.dot(obs[p*i:p*(i+1), :], a)
+    obsr = np.concatenate((np.real(obs), np.imag(obs)), 1)
+    u, s, vh = linalg.svd(obsr, full_matrices=False, overwrite_a=True)
+    c = u[:p, :n]
+    lh = u[:p*n, :n]
+    rh = u[p:, :n]
+    lsres = linalg.lstsq(lh, rh, overwrite_a=True, overwrite_b=True)
+    a = lsres[0]
+    return a, c     
+        
 def ls_estim_cd(ffdata, z, a, b, dtype='float', estimd=True):
     """
     Estimates the c and d matrices given a, b matrices and frequency function data 'ffdata'.
@@ -85,8 +209,8 @@ def ls_estim_cd(ffdata, z, a, b, dtype='float', estimd=True):
     b : matrix_like
         the b matrix
     dtype: optional
-        data type of model either 'float' or 'complex'
     estimd: optional
+        data type of model either 'float' or 'complex'
         if set to False no d matrix is esimated and a zero d matrix is returned
         
     Returns 
@@ -1205,7 +1329,22 @@ def uq_cond(z, q):
 if __name__ == "__main__":
 
 # Below is unit test code
-    
+    def unit_test_markov_kung():
+        nmpset = [(4, 1, 1), (1, 1, 1), (4, 2, 1), (2, 4, 12)]
+        for (n, m, p) in nmpset: 
+            a = np.random.randn(n, n)
+            b = np.random.randn(n, m)
+            c = np.random.randn(p, n)
+            mp = markov((a, b, c), 2*n )
+            ae ,be, ce = kung_realization(mp, n)
+            me = markov((ae, be, ce), 2*n )
+            err = linalg.norm(me-mp)/linalg.norm(mp)
+            if err > 1e-8:
+                print('Unit test "markov_kung" failed', err, n, m, p)
+                return False  
+        print('Unit test "markov_kung" passed')
+        return True
+
     def unit_test_ls_estim_cd():
         N = 100
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
@@ -1884,7 +2023,7 @@ if __name__ == "__main__":
         return True
     
     def unit_test_lrm():
-        N = 500
+        N = 400
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
         for (n, m, p) in nmpset: 
             A = np.random.randn(n, n)
@@ -1902,10 +2041,10 @@ if __name__ == "__main__":
             y = lsim((A, B, C, D), u, dtype='float')
             ff = lrm(u,y)
             err = linalg.norm(fd-ff)/linalg.norm(fd)
-            if err > 1e-4:
-                print('Unit test "lrm2" failed')
+            if err > 1e-3:
+                print('Unit test "lrm" failed')
                 return False        
-        print('Unit test "lrm2" passed')
+        print('Unit test "lrm" passed')
         return True
 
     def unit_test_moebius():
@@ -1989,6 +2128,7 @@ if __name__ == "__main__":
         and unit_test_bilinear()
         and unit_test_fconv()
         and unit_test_lrm()
-        and unit_test_moebius()):
+        and unit_test_moebius()
+        and unit_test_markov_kung()):
         print("All unit tests passed")
         

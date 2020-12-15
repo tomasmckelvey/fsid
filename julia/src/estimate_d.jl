@@ -141,7 +141,7 @@ Parameters
 
 Returns 
 -------
-`c`:          the LS-optimal `c` matrix\\
+`b`:          the LS-optimal `b` matrix\\
 `d`:          LS-optimal `d` matrix  zeros matrix if `estimd=false`\\
 `xt`:         LS-optimal `xt` vector if `estTrans=true`\\
 """
