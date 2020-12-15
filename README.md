@@ -10,9 +10,9 @@ To reduce the computational complexity for the estimation
 algorithms, an accelerated algorithm is provided which evaluate the
 state-space realization of the transfer function matrix at arbitrary
 points. The toolbox is compatible with Python 2.7+ as well as
-Python 3.0+ and Julia 1.0-1.5.
+Python 3.0+ and Julia 1.0-1.5 and Matlab.
   
 The Python implementation is contained in file python/fsid.py. The
 Julia implementation reside in subfolder julia as package. The python script python/examples_fsid.py 
 illustrates the use of the toolbox. Brief documentation is provided in python/fsid_v1.pdf.
-
+The matlab implmentatin is in folder matlab with main script gfdsid.m.
