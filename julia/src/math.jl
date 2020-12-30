@@ -1,7 +1,7 @@
-"""
+@doc raw"""
     multidot(mats...)
 
-Fast multiplication of multiple matrices. Provide matrices in order of multiplication.
+Fast multiplication of multiple matrices, i.e. optimal order. Provide matrices in order of multiplication.
 """
 function multidot(mats...)
     sizes = [size(mat, 1) for mat in mats]
@@ -19,7 +19,7 @@ function multidot(mats...)
     return optmul(1, length(mats))
 end
 
-"""
+@doc raw"""
     matrix_chain_order(p)
 
 Reference: Cormen, "Introduction to Algorithms", Chapter 15.2, p. 370-378
@@ -47,7 +47,7 @@ function matrix_chain_order(p)
     return s
 end
 
-"""
+@doc raw"""
     optimal_print(s, i, j)
 
 Helper function.
