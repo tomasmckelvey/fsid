@@ -1,42 +1,38 @@
-"""
-    function ffsid(w, ffdata, n, q; type = Real, estimd = true, CT = false, T = 1)
+@doc raw"""
     function ffsid(
-    w::AbstractVector{<:Number},
-    ffdata::AbstractArray{<:Number, 3},
-    n::Integer,
-    q::Integer;
-    type::Union{Type{<:Real}, Type{<:Complex}} = Real,
-    estimd::Bool = true,
-    CT::Bool = false,
-    T::Real = 1
+        w::AbstractVector{<:Number},
+        ffdata::AbstractArray{<:Number, 3},
+        n::Integer,
+        q::Integer;
+        type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+        estimd::Bool = true,
+        CT::Bool = false,
+        T::Real = 1
     )
 
-Estimate a state-space model `(a,b,c,d)` from frequency function data.
+Estimate a state-space model `(a, b, c, d)` from frequency function data.
 
-Parameters
-==========
-`w`:          vector of frequencies in rad/sample [-pi,pi] or [0, 2pi]. if `CT = true`  
-            unit in radians/s (-inf, +inf)  \\
-`ffdata`:     matrix of frequency function data. `ffdata[i,:,:]` is the frequency  
-            response matrix at frequency `w[i]` _ \\
-`n`:          the model order of the ss-model `(a,b,c,d)`, i.e. `a` is a size (`n` x `n`) matrix \\
-`q`:          the numer of block rows used in the intermediate matrix. Must satisfy `q>n`\\
-*Optional*\\
-`type`:       if `type = Real` a real valued solution `(a,b,c,d)` is returned.
-            if `type = Complex` a complex valued solution `(a,b,c,d)` is returned. \\
-`estimd`:     if set to False no `d` matrix is esimated and a zero `d` matrix is returned \\ 
-`CT`:         if set to true a continuous time (CT) model is esimated  
-            if set to false a discrete time (DT) model is esimated (default) \\
-`T`:          a frequency scaling factor for the bilinear transformation used when `CT=true`. \\
-            Default is 1. If `CT=False` parameter `T` is disregarded
+Parameters:
+* `w`: vector of frequencies in rad/sample [-pi,pi] or [0, 2pi]. if `CT = true` unit in radians/s (-inf, +inf)
+* `ffdata`: matrix of frequency function data. `ffdata[i,:,:]` is the frequency response matrix at frequency `w[i]`
+* `n`: the model order of the ss-model `(a, b, c, d)`, i.e. `a` is a size (`n` x `n`) matrix
+* `q`: the numer of block rows used in the intermediate matrix. Must satisfy `q > n`
+*Optional:*
+* `type`:
+    * if `type = Real` a real valued solution `(a, b, c, d)` is returned
+    * if `type = Complex` a complex valued solution `(a,b,c,d)` is returned
+* `estimd`: if set to False no `d` matrix is esimated and a zero `d` matrix is returned
+* `CT`:
+    * if set to `true` a continuous time (CT) model is esimated
+    * if set to `false` a discrete time (DT) model is esimated (default)
+* `T`: a frequency scaling factor for the bilinear transformation used when `CT = true`. Default is 1. If `CT = false` parameter `T` is disregarded
 
-Returns
-=======
-`a`:          the estimated `a` matrix  \\
-`b`:          the estimated `b` matrix  \\
-`c`:          the estimated `c` matrix  \\
-`d`:          the estimated `d` matrix (or zero matrix if `estimd=False`)  \\
-`s`:          a vector of the singular values   
+Returns:
+* `a`: the estimated `a` matrix
+* `b`: the estimated `b` matrix
+* `c`: the estimated `c` matrix
+* `d`: the estimated `d` matrix (or zero matrix if `estimd = false`)
+* `s`: a vector of the singular values   
 """
 function ffsid(
     w::AbstractVector{<:Number},
@@ -64,42 +60,37 @@ function ffsid(
     return gffsid(exp.(im*w), ffdata, n, q; type = type, estimd = estimd)
 end
 
-"""
-    function gffsid(z, ffdata, n, q; type = Real, estimd = true)
+@doc raw"""
     function gffsid(
-    z::AbstractVector{<:Number},
-    ffdata::AbstractArray{<:Number, 3},
-    n::Integer,
-    q::Integer;
-    type::Union{Type{<:Real}, Type{<:Complex}} = Real,
-    estimd::Bool = true
+        z::AbstractVector{<:Number},
+        ffdata::AbstractArray{<:Number, 3},
+        n::Integer,
+        q::Integer;
+        type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+        estimd::Bool = true
     )
 
+Estimate a state-space model `(a, b, c, d)` from general frequency function data by mininizing the Frobenius norm 
 
-Estimate a state-space model `(a,b,c,d)` from general frequency function data 
-by mininizing the Frobenius norm 
+``\sum_i \| ffdata[i,:,:] - d - c*inv(z[i]*eye(n)-a)*b \|^2_F``
 
-    ``\\sum_i \\| ffdata[i,:,:] - d - c*inv(z[i]*eye(n)-a)*b \\|^2_F``
+Parameters:
+* `z`: vector of complex numbers
+* `ffdata`: matrix of frequency function data. `ffdata[i,:,:]` is the frequency response matrix at complex point `z[i]`
+* `n`: the model order of the ss-model `(a, b, c, d)`, i.e. a is a size (`n` x `n`) matrix
+* `q`: the numer of block rows used in the intermediate matrix. Must satisfy `q > n`
+*Optional:*
+* `type`:
+    * if `type = Real` a real valued solution `(a, b, c, d)` is returned
+    * if `type = Complex` a complex valued solution is returned
+* `estimd`: if set to `false` no `d` matrix is esimated and a zero `d` matrix is returned
 
-Parameters
-==========
-`z`:          vector of complex numbers\\
-`ffdata`:     matrix of frequency function data. `ffdata[i,:,:]` is the frequency
-            response matrix at complex point `z[i]`\\
-`n`:          the model order of the ss-model `(a,b,c,d)`, i.e. a is a size (`n` x `n`) matrix\\
-`q`:          the numer of block rows used in the intermediate matrix. Must satisfy `q>n`\\
-*Optional*\\
-`type`:       if type = Real a real valued solution `(a,b,c,d)` is returned.\\
-            if type = Complex a complex valued solution is returned.\\
-`estimd`:     if set to False no `d` matrix is esimated and a zero `d` matrix is returned
-
-Returns
-=======
-`a`:          the estimated `a` matrix  \\
-`b`:          the estimated `b` matrix  \\
-`c`:          the estimated `c` matrix  \\
-`d`:          the estimated `d` matrix (or zero matrix if `estimd=False`)  \\
-`s`:          a vector of the singular values   
+Returns:
+* `a`: the estimated `a` matrix
+* `b`: the estimated `b` matrix
+* `c`: the estimated `c` matrix
+* `d`: the estimated `d` matrix (or zero matrix if `estimd = false`)
+* `s`: a vector of the singular values   
 """
 function gffsid(
     z::AbstractVector{<:Number},
@@ -172,56 +163,51 @@ function gffsid(
     return a, be, ce, de, s
 end
 
-"""    
-    function fdsid(fddata, n, q; estTrans = true, type = Real, estimd = true, CT = false, T = 1)
+@doc raw"""    
     function fdsid(
-    fddata::Tuple,
-    n::Integer,
-    q::Integer;
-    estTrans::Bool = true,
-    type::Union{Type{<:Real}, Type{<:Complex}} = Real,
-    estimd::Bool = true,
-    CT::Bool = false,
-    T::Real = 1
+        fddata::Tuple,
+        n::Integer,
+        q::Integer;
+        estTrans::Bool = true,
+        type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+        estimd::Bool = true,
+        CT::Bool = false,
+        T::Real = 1
     )
 
-Estimate a DT or CT state-space model from I/O frequency data
+Estimate a DT or CT state-space model from I/O frequency data.
 
-Determines the `(a,b,c,d,xt)` parametrers such that (DT case)\\
- ``sum_i   || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-a)*[b,  xt]* [u[i, :]; z[i]]||^_F`` \\
-is small where `z[i] = exp(im*w[i])` and CT Case\\
- ``sum_i   ||  y[i,:] - d*u[i, :] + c*inv(im*w[i]*eye(n)-a)*b* u[i, :] ||^2_F``
+Determines the `(a,b,c,d,xt)` parametrers such that (DT case)
 
-Parameters
-==========
-`fddata`:   a tuple with elements 
-            `fddata[0] = w` 
-                a vector of frequencies in radians/sample (rad/s in CT case),
-            `fddata[1] = y`, 
-                a matrix of the output transform data where `y[i,:]` is the DFT of the 
-                time domain output signal corresponding to frequency `w[i]`,
-            `fddata[2] = u` 
-                a matrix of the input transform data where `u[i,:]` is the DFT of the 
-                time domain input signal corresponding to frequency `w[i]`\\
-`n`:          the model order of the ss-model\\
-`q`:          the numer of block rows used in the intermediate matrix. Must satisfy `q>n`\\
-*Optional*\\
-`estTrans`:   if true, a compensation for the transient term will be estimated (default)\\
-`type`:       if `type = Real` a real valued solution `(a,b,c,d)` is returned.\\
-            if `type = Complex` a complex valued solution is returned.\\
-`estimd`:     if set to False no `d` matrix is esimated and a zero `d` matrix is returned
-`CT`:         if true a CT model is estimated and `estTrans` is forced False.\\
-`T`:          a frequency scaling factor for the bilinear transformation used when `CT=true`. 
-            Default is 1. If `CT=False` parameter `T` is disregarded 
+``sum_i   || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-a)*[b,  xt]* [u[i, :]; z[i]]||^_F``
 
-Returns
-=======
-`a`:          the estimated `a` matrix  \\
-`b`:          the estimated `b` matrix  \\
-`c`:          the estimated `c` matrix  \\
-`d`:          the estimated `d` matrix (or zero matrix if `estimd=False`)  \\
-`xt`:     vector of the transient compensation\\
-`s`:          a vector of the singular values   
+is small where `z[i] = exp(im*w[i])` and CT Case
+
+``sum_i   ||  y[i,:] - d*u[i, :] + c*inv(im*w[i]*eye(n)-a)*b* u[i, :] ||^2_F``
+
+Parameters:
+* `fddata`: a tuple with elements 
+    * `fddata[0] = w`: a vector of frequencies in radians/sample (rad/s in CT case)
+    * `fddata[1] = y`: a matrix of the output transform data where `y[i,:]` is the DFT of the time domain output signal corresponding to frequency `w[i]`
+    * `fddata[2] = u`: a matrix of the input transform data where `u[i,:]` is the DFT of the time domain input signal corresponding to frequency `w[i]`
+* `n`: the model order of the ss-model
+* `q`: the numer of block rows used in the intermediate matrix. Must satisfy `q > n`
+*Optional:*
+* `estTrans`: if `true`, a compensation for the transient term will be estimated (default)
+* `type`:
+    * if `type = Real` a real valued solution `(a, b, c, d)` is returned.
+    * if `type = Complex` a complex valued solution is returned.
+* `estimd`: if set to `false` no `d` matrix is esimated and a zero `d` matrix is returned
+* `CT`: if `true` a CT model is estimated and `estTrans` is forced `false`
+* `T`: a frequency scaling factor for the bilinear transformation used when `CT = true`.  Default is 1. If `CT = false` parameter `T` is disregarded
+
+Returns:
+* `a`: the estimated `a` matrix
+* `b`: the estimated `b` matrix
+* `c`: the estimated `c` matrix
+* `d`: the estimated `d` matrix (or zero matrix if `estimd = false`)
+* `xt`: vector of the transient compensation
+* `s`: a vector of the singular values   
 """
 function fdsid(
     fddata::Tuple,
@@ -262,52 +248,51 @@ function fdsid(
 end
 
 
-"""   
-    function gfdsid(fddata, n, q; estTrans = true, type = Real, estimd = true)
+@doc raw"""
     function gfdsid(
-    fddata::Tuple,
-    n::Integer,
-    q::Integer;
-    estTrans::Bool = true,
-    type::Union{Type{<:Real}, Type{<:Complex}} = Real,
-    estimd::Bool = true
+        fddata::Tuple,
+        n::Integer,
+        q::Integer;
+        estTrans::Bool = true,
+        type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+        estimd::Bool = true
     )
 
 Estimate a state-space model from I/O frequency data
 
-Determines the `(a,b,c,d,xt)` parameters such that \\
- ``sum_i || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]] ||^2_F `` \\
- is minimized 
+Determines the `(a, b, c, d, xt)` parameters such that
 
-If `estrTrans=False` the following problem is solved \\
- ``sum_i ||y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*b * u[i, :] ||^2_F `` \\
- is minimized 
+``\sum_i \| y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-a)*[b,  xt]* [u[i, :]; z[i]] \|^2_F ``
 
-Parameters
-==========
-`fddata`:   a tuple with elements 
-            `fddata[0] = z` 
-                a vector of complex scalars,
-            `fddata[1] = y`, 
-                a matrix of the output frequency data where `y[i,:]` corresponds to `z[i]`,
-            `fddata[2] = u` 
-                a matrix of the input frrequency data where `u[i,:]` corresponding to `z[i]`\\
-`n`:          the model order of the ss-model\\
-`q`:          the numer of block rows used in the intermediate matrix. Must satisfy `q>n`\\
-*Optional*\\
-`estTrans`:   if true, a compensation for the transient term will be estimated (default)\\
-`type`:       if `type = Real` a real valued solution `(a,b,c,d)` is returned.\\
-            if `type = Complex` a complex valued solution is returned.\\
-`estimd`:     if set to False no `d` matrix is esimated and a zero `d` matrix is returned
+is minimized.
 
-Returns
-=======
-`a`:          the estimated `a` matrix  \\
-`b`:          the estimated `b` matrix  \\
-`c`:          the estimated `c` matrix  \\
-`d`:          the estimated `d` matrix (or zero matrix if `estimd=False`)  \\
-`x`:     vector of the transient compensation\\
-`s`:          a vector of the singular values   
+If `estrTrans = false` the following problem is solved
+
+``\sum_i \| y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-a)*b * u[i, :] \|^2_F ``
+
+is minimized.
+
+Parameters:
+* `fddata`: a tuple with elements 
+    * `fddata[0] = z`: a vector of complex scalars,
+    * `fddata[1] = y`: a matrix of the output frequency data where `y[i,:]` corresponds to `z[i]`
+    * `fddata[2] = u`: a matrix of the input frrequency data where `u[i,:]` corresponding to `z[i]`
+* `n`: the model order of the ss-model
+* `q`: the numer of block rows used in the intermediate matrix. Must satisfy `q > n`
+*Optional:*
+* `estTrans`: if `true`, a compensation for the transient term will be estimated (default)
+* `type`:
+    * if `type = Real` a real valued solution `(a, b, c, d)` is returned.
+    * if `type = Complex` a complex valued solution is returned.
+* `estimd`: if set to 'false' no `d` matrix is esimated and a zero `d` matrix is returned
+
+Returns:
+* `a`: the estimated `a` matrix
+* `b`: the estimated `b` matrix
+* `c`: the estimated `c` matrix
+* `d`: the estimated `d` matrix (or zero matrix if `estimd = false`)
+* `x`: vector of the transient compensation
+* `s`: a vector of the singular values   
 """
 function gfdsid(
     fddata::Tuple,

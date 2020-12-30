@@ -1,38 +1,37 @@
-"""
-    function estimate_cd(ffdata, z, a, b; type = Real, estimd = true)
-    function estimate_cd(
-      ffdata::AbstractArray{<:Number, 3},
-      z::AbstractVector{<:Number},
-      a::AbstractMatrix{<:Number},
-      b::AbstractMatrix{<:Number};
-      type::Union{Type{<:Real}, Type{<:Complex}} = Real,
-      estimd::Bool = true,
+@doc raw"""
+    estimate_cd(
+        ffdata::AbstractArray{<:Number, 3},
+        z::AbstractVector{<:Number},
+        a::AbstractMatrix{<:Number},
+        b::AbstractMatrix{<:Number};
+        type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+        estimd::Bool = true,
     )
 
-Estimates the c and d matrices given a, b matrices and frequency function data ffdata.
+Estimates the `c` and `d` matrices given `a and `b` matrices and frequency function data `ffdata`.
 
-Solve the optimization problem\\
-``min_{c,d} sum_i || d + c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F ``\\
-or if `estimd == false`\\
-``min_{c} sum_i || c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F``\\
-if `type=Real` a real valued solution is calulated. If `type=Complex` 
-the solution is complex valued
+Solve the optimization problem
 
-Parameters
-----------
-`ffdata`:     frequency data packed in a matrix. `ffdata[i,:,:]` is the frequency
-            function matrix corresponding to sample i
-`z`:        vector with complex scalars\\
-`a`:        square matrix\\
-`b`:        matrix\\
-*Optional*\\
-`type`:       Data type of model. either 'Real' or 'Complex'\\
-`estimd`:     if set to false no d matrix is esimated and a zero d matrix is returned
+``\min_{c,d} \sum_i \| d + c*inv(z[i]*I-a)*b - ffdata[i,:,:] \|^2_F``
 
-Returns 
--------
-`c`:          LS-optimal `c` matrix\\
-`d`:          LS-optimal `d` matrix
+or if `estimd == false`
+
+``\min_{c} \sum_i \| c*inv(z[i]*I-a)*b - ffdata[i,:,:] \|^2_F``
+
+if `type = Real` a real valued solution is calulated. If `type = Complex` the solution is complex valued
+
+Parameters:
+* `ffdata`: frequency data packed in a matrix. `ffdata[i,:,:]` is the frequency function matrix corresponding to sample `i`
+* `z`: vector with complex scalars
+* `a`: square matrix
+* `b`: matrix
+*Optional:*
+* `type`: data type of model, either `Real` or `Complex`
+* `estimd`: if set to `false` no d matrix is esimated and a zero d matrix is returned
+
+Returns :
+* `c`: LS-optimal `c` matrix
+* `d`: LS-optimal `d` matrix
 """
 function estimate_cd(
     ffdata::AbstractArray{<:Number, 3},
@@ -66,42 +65,40 @@ function estimate_cd(
     return cd[:, 1:n], estimd ? cd[:, n+1:end] : zeros(type, p, m)
 end
 
-""" 
-    estimate_bd(ffdata, z, a, c; type = Real, estimd = true)
-    function estimate_bd(
-      ffdata::AbstractArray{<:Number, 3},
-      z::AbstractVector{<:Number},
-      a::AbstractMatrix{<:Number},
-      c::AbstractMatrix{<:Number};
-      type::Union{Type{<:Real}, Type{<:Complex}} = Real,
-      estimd::Bool = true,
+@doc raw""" 
+    estimate_bd(
+        ffdata::AbstractArray{<:Number, 3},
+        z::AbstractVector{<:Number},
+        a::AbstractMatrix{<:Number},
+        c::AbstractMatrix{<:Number};
+        type::Union{Type{<:Real}, Type{<:Complex}} = Real,
+        estimd::Bool = true,
     )
 
-    
-Estimates the b and d matrices given a, c matrices and frequency function data ffdata.
+Estimates the `b` and `d` matrices given `a`, `c` matrices and frequency function data `ffdata`.
 
-Solve the optimization problem\\
-``min_{b,d} sum_i || d + c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F ``\\
-or if `estimd == false`\\
-``min_{b} sum_i || c*inv(z[i]*I-a)*b - ffdata[i,:,:] ||^2_F``\\
-if `type=Real` a real valued solution is calulated. If `type=Complex` 
-the solution is complex valued
+Solve the optimization problem
 
-Parameters
-----------
-`ffdata`:     frequency data packed in a matrix. `ffdata[i,:,:]` is the frequency
-            function matrix corresponding to sample i
-`z`:        vector with complex scalars\\
-`a`:        square matrix\\
-`c`:        matrix\\
-*Optional*\\
-`type`:       Data type of model. either 'Real' or 'Complex'\\
-`estimd`:     if set to false no `d` matrix is esimated and a zero `d` matrix is returned
+``\min_{b,d} \sum_i \| d + c*inv(z[i]*I-a)*b - ffdata[i,:,:] \|^2_F ``
 
-Returns 
--------
-`b`:          LS-optimal `b` matrix\\
-`d`:          LS-optimal `d` matrix
+or if `estimd == false`
+
+``\min_{b} \sum_i \| c*inv(z[i]*I-a)*b - ffdata[i,:,:] \|^2_F``
+
+if `type = Real` a real valued solution is calulated. If `type = Complex` the solution is complex valued
+
+Parameters:
+* `ffdata`: frequency data packed in a matrix. `ffdata[i,:,:]` is the frequency function matrix corresponding to sample `i`
+* `z`: vector with complex scalars
+* `a`: square matrix
+* `c`: matrix
+*Optional_*
+* `type`: data type of model, either `Real` or `Complex`
+* `estimd`: if set to false no `d` matrix is esimated and a zero `d` matrix is returned
+
+Returns:
+* `b`: LS-optimal `b` matrix
+* `d`: LS-optimal `d` matrix
 """
 function estimate_bd(
     ffdata::AbstractArray{<:Number, 3},
@@ -117,10 +114,10 @@ function estimate_bd(
     transpose(bt), transpose(dt)
 end
  
-"""
-	transpose_ffdata(ffdata)
+@doc raw"""
+	transpose_ffdata(ffdata::AbstractArray{<:Number, 3})
 
-Transposes ffdata (changes inputs and outputs)
+Transposes ffdata (changes inputs and outputs).
 """
 function transpose_ffdata(ffdata::AbstractArray{<:Number, 3})
     # nw, p, m = size(ffdata)
