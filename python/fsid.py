@@ -606,7 +606,7 @@ def gffsid(z, ffdata, n, q, dtype='float', estimd=True):
 
 def fdsid(fddata, n, q, estTrans=True, dtype='float', estimd=True, CT=False, T=1, W=np.empty(0)):
     """    
-    Estimate a DT state-space model from I/O frequency data
+    Estimate a DT or CT state-space model from I/O frequency data
     
     Determines the (a,b,c,d,xt) parametrers such that (DT case)
      sum_i   || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]]||^2_F

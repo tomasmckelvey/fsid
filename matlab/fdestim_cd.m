@@ -59,7 +59,7 @@ function [c, d] = fdestim_cd(z, yd, ud, a, b, xt, dtype, estimd, w)
 %        the LS-optimal d matrix
 %
 %    """
-    if  nargin<10,
+    if  nargin<9,
         w = [];
     end
     if norm(xt)<eps
@@ -72,14 +72,6 @@ function [c, d] = fdestim_cd(z, yd, ud, a, b, xt, dtype, estimd, w)
     n = size(a, 1);
     z = z(:);
     nz = length(z);
-    ydw = zeros(size(yd));
-    if ~isempty(w)
-        for widx=1:nz
-            ydw(widx,:) = yd(widx,:)*squeeze(w(widx,:,:)).';
-        end
-    else
-        ydw = yd;
-    end
     if estTrans
         ude = [ud, z];
         be = [b, xt];
@@ -87,7 +79,7 @@ function [c, d] = fdestim_cd(z, yd, ud, a, b, xt, dtype, estimd, w)
         ude = ud;
         be = b;
     end
-
+    
     fkern = ltifd(a, be, ude, z);
 
     if estimd
@@ -100,10 +92,10 @@ function [c, d] = fdestim_cd(z, yd, ud, a, b, xt, dtype, estimd, w)
     if ~isempty(w)
         nr = size(r,1);
         rw = zeros(p*nz, nr*p);
-        ydw = zeros(p*nz);
+        ydw = zeros(p*nz,1);
         for zidx = 0:nz-1 %Vectorize data and apply pre-whitening filter
-            ydw(p*zidx:p*(zidx+1)) = squeeze(w(zidx+1,:,:))*yd(zidx+1,:).';
-            rw(p*zidx:p*(zidx+1),:) = kron(r(:,zidx+1).', squeeze(w(zidx+1,:,:)));
+            ydw(p*zidx+1:p*(zidx+1)) = squeeze(w(zidx+1,:,:))*yd(zidx+1,:).';
+            rw(p*zidx+1:p*(zidx+1),:) = kron(r(:,zidx+1).', squeeze(w(zidx+1,:,:)));
         end
         if isequal(dtype,'Real')
             lh = [real(ydw);  imag(ydw)];
@@ -113,7 +105,7 @@ function [c, d] = fdestim_cd(z, yd, ud, a, b, xt, dtype, estimd, w)
             rh = rw;
         end
         vecCD = rh\lh;
-        z = zeros(p,n);
+        c = zeros(p,n);
         c(:) = vecCD(1:n*p);
         if estimd
             d = zeros(p,m);
