@@ -1,25 +1,26 @@
 using LinearAlgebra, FFTW
 using Test
 
-using fsid: 
-  fresp,
-  estimate_cd,
-  estimate_bd,
-  transpose_ffdata,
-  fresp,
-  ffdata2fddata,
-  fdestim_bd,
-  fdestim_cd,
-  fdsid,
-  ffsid,
-  bilinear_c2d,
-  bilinear_d2c,
-  lsim,
-  fdsim,
-  cf2df,
-  df2cf,
-  ltifr
-  
+
+using fsid:
+    fresp,
+    estimate_cd,
+    estimate_bd,
+    transpose_ffdata,
+    ffdata2fddata,
+    fdestim_bd,
+    fdestim_cd,
+    fdsid,
+    ffsid,
+    bilinear_c2d,
+    bilinear_d2c,
+    lsim,
+    fdsim,
+    cf2df,
+    df2cf,
+    ltifr
+
+
 # Helper functions
 buildss(n, m, p) = randn(n, n), randn(n, m), randn(p, n), randn(p, m)
 buildfset(N) = (0:N-1)/N
@@ -34,8 +35,10 @@ function unit_test_estimate_cd_1(fset, m, n, p)
     fd = fresp(z, A, B, C, D)
     Ce, De = estimate_cd(fd, z, A, B)
     fde = fresp(z, A, B, Ce, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_estimate_cd_2(fset, m, n, p)
     z = ztrans(fset)
@@ -44,8 +47,10 @@ function unit_test_estimate_cd_2(fset, m, n, p)
     fd = fresp(z, A, B, C, D)
     Ce, De = estimate_cd(fd, z, A, B; estimd = false)
     fde = fresp(z, A, B, Ce, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_estimate_cd_3(fset, m, n, p)
     z = ztrans(fset)
@@ -53,8 +58,10 @@ function unit_test_estimate_cd_3(fset, m, n, p)
     fd = fresp(z, A, B, C, D)
     Ce, De = estimate_cd(fd, z, A, B; type = Complex)
     fde = fresp(z, A, B, Ce, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_estimate_bd(fset, m, n, p)
     z = ztrans(fset)
@@ -62,8 +69,11 @@ function unit_test_estimate_bd(fset, m, n, p)
     fd = fresp(z, A, B, C, D)
     Be, De = estimate_bd(fd, z, A, C)
     fde = fresp(z, A, Be, C, De)
+
     return computerr(fd, fde)
 end
+
+
 function unit_test_estimate_bd_2(fset, m, n, p)
     z = ztrans(fset)
     A, B, C, D = buildss(n, m, p)
@@ -71,24 +81,32 @@ function unit_test_estimate_bd_2(fset, m, n, p)
     fd = fresp(z, A, B, C, D)
     Be, De = estimate_bd(fd, z, A, C, estimd=false)
     fde = fresp(z, A, Be, C, De)
+
     return computerr(fd, fde)
 end
+
+
 function unit_test_estimate_bd_3(fset, m, n, p)
     z = ztrans(fset)
     A, B, C, D = buildss(n, m, p) .+ im .* buildss(n, m, p)
     fd = fresp(z, A, B, C, D)
     Be, De = estimate_bd(fd, z, A, C, type=Complex)
     fde = fresp(z, A, Be, C, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_transpose_ffdata(fset, m, n, p)
     z = ztrans(fset)
     A, B, C, D = buildss(n, m, p)
     fd = fresp(z, A, B, C, D)
     fde = transpose_ffdata(transpose_ffdata(fd))
+
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_fresp(fset, m, n, p)
     z = ztrans(fset)
@@ -119,6 +137,7 @@ function unit_test_fresp(fset, m, n, p)
     fdef = fresp(z, Ae, Be, Ce, De)
     err = computerr(fd, fde)
     errf = computerr(fd, fdef)
+
     return max(err, errf) # compare largest error with TOL
 
     #if err > 1e-8:
@@ -137,8 +156,10 @@ function unit_test_fresp_def(fset, m, n, p)
     _, B, C, D = buildss(n, m, p)
     frsp = fresp(z, A, B, C, D)  #SLOW?
     frspf = fresp(z, A, B, C, D)
+
     return computerr(frspf, frsp)
 end
+
 
 function unit_test_fdestim_bd(fset, m, n, p)
     A, B, C, D = buildss(n, m, p)
@@ -149,8 +170,11 @@ function unit_test_fdestim_bd(fset, m, n, p)
     zn = exp.(im * wn)
     Be, De, resid = fdestim_bd(zn, Y, U, A, C)
     fde = fresp(z, A, Be, C, De)
+
     return computerr(fd, fde)
 end
+
+
 function unit_test_fdestim_bd_no_d(fset, m, n, p)
     A, B, C, D = buildss(n, m, p)
     D = zeros(p,m)
@@ -161,9 +185,12 @@ function unit_test_fdestim_bd_no_d(fset, m, n, p)
     zn = exp.(im * wn)
     Be, De, resid = fdestim_bd(zn, Y, U, A, C, estimd=false)
     fde = fresp(z, A, Be, C, De)
+
+
     return computerr(fd, fde)
 end
-    
+
+
 function unit_test_fdestim_bd_cmplx(fset, m, n, p)
     A, B, C, D = buildss(n, m, p)
     B = B + im*randn(n, m)
@@ -175,8 +202,10 @@ function unit_test_fdestim_bd_cmplx(fset, m, n, p)
     zn = exp.(im * wn)
     Be, De = fdestim_bd(zn, Y, U, A, C; type = Complex)
     fde = fresp(z, A, Be, C, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_fdestim_cd(fset, m, n, p)
     A, B, C, D = buildss(n, m, p)
@@ -187,8 +216,11 @@ function unit_test_fdestim_cd(fset, m, n, p)
     zn = exp.(im * wn)
     Ce, De, resid = fdestim_cd(zn, Y, U, A, B)
     fde = fresp(z, A, B, Ce, De)
+
     return computerr(fd, fde)
 end
+
+
 function unit_test_fdestim_cd_no_d(fset, m, n, p)
     A, B, C, D = buildss(n, m, p)
     D = zeros(p,m)
@@ -199,8 +231,11 @@ function unit_test_fdestim_cd_no_d(fset, m, n, p)
     zn = exp.(im * wn)
     Ce, De, resid = fdestim_cd(zn, Y, U, A, B, estimd=false)
     fde = fresp(z, A, B, Ce, De)
+
     return computerr(fd, fde)
 end
+
+
 function unit_test_fdestim_cd_cmplx(fset, m, n, p)
     A, B, C, D = buildss(n, m, p) .+ im .* buildss(n, m, p) 
     w = 2pi * fset
@@ -210,9 +245,11 @@ function unit_test_fdestim_cd_cmplx(fset, m, n, p)
     zn = exp.(im * wn)
     Ce, De, resid = fdestim_cd(zn, Y, U, A, B, type=Complex)
     fde = fresp(z, A, B, Ce, De)
+
     return computerr(fd, fde)
 end
     
+
 function unit_test_ltifr_slow(fset, m, n, p)
     z = ztrans(fset)
     dd = zeros(Complex, n)
@@ -241,17 +278,21 @@ function unit_test_ltifr_slow(fset, m, n, p)
     fkernf = ltifr(Ae, Be, z)
     err = computerr(fkern1, fkern)
     errf = computerr(fkern1, fkernf)
+
     return max(err, errf) # compare largest error with TOL
 end
     
+
 function unit_test_ltifr_def(fset, m, n, p)
     A = [0 0; 1 0]
     B = randn(n, m)
     z = ztrans(fset .+ 1.0e-5)
     fkern = ltifr(A, B, z) #SLOW?   
     fkernf = ltifr(A, B, z)
+
     return computerr(fkernf, fkern)
 end
+
 
 function unit_test_fconv(fset, m, n, p)
     N = 100
@@ -260,8 +301,10 @@ function unit_test_fconv(fset, m, n, p)
     wc = fset
     wd = cf2df(wc, T)
     w = df2cf(wd, T)
+
     return computerr(wc, w) 
 end
+
 
 function unit_test_fdsid(fset, m, n ,p)
     N = length(fset)
@@ -283,8 +326,10 @@ function unit_test_fdsid(fset, m, n ,p)
     fddata = (w, yf, uf)
     Ae, Be, Ce, De, xt, s = fdsid(fddata, n, 2n; estTrans = true, type = Real)
     fde = fresp(z, Ae, Be, Ce, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_fdsid_no_d(fset, m, n ,p)
     N = length(fset)
@@ -307,8 +352,10 @@ function unit_test_fdsid_no_d(fset, m, n ,p)
     fddata = (w, yf, uf)
     Ae, Be, Ce, De, xt, s = fdsid(fddata, n, 2n; estTrans = true, type = Real, estimd = false)
     fde = fresp(z, Ae, Be, Ce, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_fdsid_cmplx(fset, m, n ,p)
     N = length(fset)
@@ -330,8 +377,10 @@ function unit_test_fdsid_cmplx(fset, m, n ,p)
     fddata = (w, yf, uf)
     Ae, Be, Ce, De, xt, s = fdsid(fddata, n, 2*n; estTrans = true, type = Complex)
     fde = fresp(z, Ae, Be, Ce, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_ffsid(fset, m, n, p)
     z = ztrans(fset)
@@ -340,8 +389,11 @@ function unit_test_ffsid(fset, m, n, p)
     fd = fresp(z, A, B, C, D)
     Ae, Be, Ce, De, s = ffsid(w, fd, n, n+1; type = Real, estimd = true)
     fde = fresp(z, Ae, Be, Ce, De)
+
     return computerr(fd, fde)
 end
+
+
 function unit_test_ffsid_no_d(fset, m, n, p)
     z = ztrans(fset)
     w = 2pi*fset
@@ -350,8 +402,10 @@ function unit_test_ffsid_no_d(fset, m, n, p)
     fd = fresp(z, A, B, C, D)
     Ae, Be, Ce, De, s = ffsid(w, fd, n, n+1; type = Real, estimd = false)
     fde = fresp(z, Ae, Be, Ce, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_ffsid_complex(fset, m, n, p)
     z = ztrans(fset)
@@ -364,8 +418,10 @@ function unit_test_ffsid_complex(fset, m, n, p)
     fd = fresp(z, A, B, C, D)
     Ae, Be, Ce, De, s = ffsid(w, fd, n, n+1; type = Complex, estimd = true)
     fde = fresp(z, Ae, Be, Ce, De)
+
     return computerr(fd, fde)
 end
+
 
 function unit_test_bilinear(fset, m, n, p)
     z = ztrans(fset)
@@ -373,11 +429,11 @@ function unit_test_bilinear(fset, m, n, p)
     a, b, c, d = bilinear_c2d((A, B, C, D), 2)
     Ae, Be, Ce, De = bilinear_d2c((a, b, c, d), 2)
     
-    return computerr(A, Ae) + computerr(B, Be) +
-           computerr(C, Ce) + computerr(D, De)
+    return computerr(A, Ae) + computerr(B, Be) + computerr(C, Ce) + computerr(D, De)
 end  
 
 
+const TOL = 1e-8
 # Main test function
 function unit_test(testfunc)
     N = 100
@@ -392,43 +448,42 @@ function unit_test(testfunc)
         nmpset = [(4, 1, 1), (1, 1, 1), (2, 4, 12)]
     end
     fset = buildfset(N)
-    err = Vector{Float64}(undef, 0)
 
     for (n, m, p) in nmpset
         error = testfunc(fset, m, n, p)
 
-        push!(err, error)
+        @test error .< TOL
     end
-    return err
+
+    return nothing
 end
 
     
 # Run the unit tests
-const TOL = 1e-8
 @testset "fsid.jl" begin
-    @test all(unit_test(unit_test_estimate_cd_1) .< TOL)
-    @test all(unit_test(unit_test_estimate_cd_2) .< TOL)
-    @test all(unit_test(unit_test_estimate_cd_3) .< TOL)
-    @test all(unit_test(unit_test_estimate_bd) .< TOL)
-    @test all(unit_test(unit_test_estimate_bd_2) .< TOL)
-    @test all(unit_test(unit_test_estimate_bd_3) .< TOL)
-    @test all(unit_test(unit_test_transpose_ffdata) .< TOL)
-    @test all(unit_test(unit_test_fresp) .< TOL)
-    @test all(unit_test(unit_test_fresp_def) .< TOL)
-    @test all(unit_test(unit_test_fdestim_bd) .< TOL)
-    @test all(unit_test(unit_test_fdestim_bd_no_d) .< TOL)
-    @test all(unit_test(unit_test_fdestim_bd_cmplx) .< TOL)
-    @test all(unit_test(unit_test_fdestim_cd) .< TOL)
-    @test all(unit_test(unit_test_fdestim_cd_no_d) .< TOL)
-    @test all(unit_test(unit_test_fdestim_cd_cmplx) .< TOL)
-    @test all(unit_test(unit_test_ltifr_slow) .< TOL)
-    @test all(unit_test(unit_test_ltifr_def) .< TOL)
-    @test all(unit_test(unit_test_fconv) .< TOL)
-    @test all(unit_test(unit_test_fdsid) .< TOL)
-    @test all(unit_test(unit_test_fdsid_no_d) .< TOL)
-    @test all(unit_test(unit_test_fdsid_cmplx) .< TOL)
-    @test all(unit_test(unit_test_ffsid) .< TOL)
-    @test all(unit_test(unit_test_ffsid_no_d) .< TOL)
-    @test all(unit_test(unit_test_ffsid_complex) .< TOL)
-    @test all(unit_test(unit_test_bilinear) .< TOL)
+    unit_test(unit_test_estimate_cd_1)
+    unit_test(unit_test_estimate_cd_2)
+    unit_test(unit_test_estimate_cd_3)
+    unit_test(unit_test_estimate_bd)
+    unit_test(unit_test_estimate_bd_2)
+    unit_test(unit_test_estimate_bd_3)
+    unit_test(unit_test_transpose_ffdata)
+    unit_test(unit_test_fresp)
+    unit_test(unit_test_fresp_def)
+    unit_test(unit_test_fdestim_bd)
+    unit_test(unit_test_fdestim_bd_no_d)
+    unit_test(unit_test_fdestim_bd_cmplx)
+    unit_test(unit_test_fdestim_cd)
+    unit_test(unit_test_fdestim_cd_no_d)
+    unit_test(unit_test_fdestim_cd_cmplx)
+    unit_test(unit_test_ltifr_slow)
+    unit_test(unit_test_ltifr_def)
+    unit_test(unit_test_fconv)
+    unit_test(unit_test_fdsid)
+    unit_test(unit_test_fdsid_no_d)
+    unit_test(unit_test_fdsid_cmplx)
+    unit_test(unit_test_ffsid)
+    unit_test(unit_test_ffsid_no_d)
+    unit_test(unit_test_ffsid_complex)
+    unit_test(unit_test_bilinear)
 end
