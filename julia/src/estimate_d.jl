@@ -33,7 +33,7 @@ Parameters:
 * `type`: data type of model either `Real` or `Complex`
 * `estimd`: if set to false no d matrix is esimated and a zero d matrix is returned
   
-Returns :
+Returns:
 * `c`: LS-optimal c matrix
 * `d`: LS-optimal d matrix
 """
