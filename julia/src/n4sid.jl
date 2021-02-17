@@ -21,7 +21,7 @@ Parameters:
 * `type`:
     * if `type = Real` a real valued solution `(a, b, c, d)` is returned
     * if `type = Complex` a complex valued solution `(a,b,c,d)` is returned
-* `estimd`: if set to False no `d` matrix is esimated and a zero `d` matrix is returned
+* `estimd`: if set to false no `d` matrix is esimated and a zero `d` matrix is returned
 * `CT`:
     * if set to `true` a continuous time (CT) model is esimated
     * if set to `false` a discrete time (DT) model is esimated (default)
@@ -226,9 +226,9 @@ function fdsid(
     ud = fddata[3]
 
     if CT
-        estTrans=False
+        estTrans = false
         ad, bd, cd, dd, xt, s  = fdsid((cf2df(w,T), yd, ud), n, q;
-            estTrans=False, type=type, estimd = true, CT=False, T=T)
+            estTrans = false, type=type, estimd = true, CT = false, T = T)
         a, b, c, d = bilinear_d2c((ad, bd, cd, dd), T)
         if !estimd
             b, d, resid = fdestim_bd(w*im, yd, ud, a, c;

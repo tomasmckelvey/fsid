@@ -506,7 +506,7 @@ end
         sys::Tuple,
         u::AbstractMatrix{<:Number},
         z::AbstractVector{<:Number},
-        xt::AbstractMatrix{<:Number} = Matrix{Float64}(undef, 0, 0)
+        xt::AbstractVector{<:Number} = Vector{Float64}(undef, 0)
     )
 
 Calculates the output given input and state-space model in Fourier domain
@@ -529,7 +529,7 @@ function fdsim(
     sys::Tuple,
     u::AbstractMatrix{<:Number},
     z::AbstractVector{<:Number},
-    xt::AbstractMatrix{<:Number} = Matrix{Float64}(undef, 0, 0)
+    xt::AbstractVector{<:Number} = Vector{Float64}(undef, 0)
 )
     nwu, m = size(u)
     nn = size(sys, 1)
@@ -547,9 +547,9 @@ function fdsim(
         return false
     end
 
-    y = Matrix{ComplexF64}(nwu, p)
+    y = Matrix{ComplexF64}(undef, nwu, p)
     
-    if size(xt) > 0
+    if length(xt) > 0
         ue = hcat(u, reshape(z, nwu, 1))
         be = hcat(b, reshape(xt, nr, 1))
         x = ltifd(a, be, ue, z)
