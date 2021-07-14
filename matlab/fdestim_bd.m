@@ -5,13 +5,13 @@ function [b, d, xt] = fdestim_bd(z, yd, ud, a, c,  estTrans, dtype, estimd, w)
 %  Calulates the b and d matrices (and optimally xt) for a linear dynamic system in state-space form given the a and c 
 %  matrices and samples of frequency domain function data. It solves 
 %  
-%  if estimd = true and estTrans = true\\
-%    min_{b,d,xt} sum_i || ([d 0] + c*inv(z(i)*I-a)*[b xt])[ud(i,:); z(i)]  - yd(i,:,:) |^2__w(i,:,:)
+%  if estimd = true and estTrans = true
+%    min_{b,d,xt} sum_i || ([d 0] + c*inv(z(i)*I-a)*[b xt])[ud(i,:); z(i)]  - yd(i,:,:) |^2_w(i,:,:)
 %  
-%  if estimd=false and estTrans = true \\
+%  if estimd=false and estTrans = true 
 %    min_{b,xt} sum_i|| (c*inv(z(i)*I-a)*[b xt])[ud(i,:); w(i)]  - yd(i,:,:) |^2__w(i,:,:)
 %  
-%  if estimd = true and estTrans=false \\
+%  if estimd = true and estTrans=false 
 %    min_{b,d} sum_i || (d+ c*inv(z(i)*I-a)*b)ud(i,:)  - yd(i,:,:) |^2__w(i,:,:)
 %  
 %  if estimd=false and estTrans=false \\
@@ -26,17 +26,18 @@ function [b, d, xt] = fdestim_bd(z, yd, ud, a, c,  estTrans, dtype, estimd, w)
 %      
 %  Parameters
 %  ----------
-%  z:          vector with the samples of the function argument where z(i) is argument for index i\\
-%  yd:         output frequency data yd(i,:)\\    
-%  ud:         input frequency data ud(widx,:)\\
+%  z:          vector with the samples of the function argument where z(i) is argument for index i
+%  yd:         output frequency data yd(i,:)
+%  ud:         input frequency data ud(i,:)
 %  a:          matrix
 %  c:          matrix
 %  
-%  *Optional*\\
+%  Optional
+%  --------  
 %  estTrans:   if set to true also an xt vector will be estimated capturing the transient effect\\
-%  type:       data type of model, either Real or Complex\\
+%  type:       data type of model, either 'Real' or 'Complex'\\
 %  estimd:     if set to false no d matrix is esimated and a zero d matrix is returned
-%   w:           w(i,:,:) is weighting matrix as described above. if w = []. No weighting is used.  
+%  w:          w(i,:,:) is weighting matrix as described above. if w = []. No weighting is used.  
 %  
 %  Returns 
 %  -------
@@ -123,7 +124,7 @@ function [b, d, xt] = fdestim_bd(z, yd, ud, a, c,  estTrans, dtype, estimd, w)
         rh = r;
         lh = reshape(ydw.',numel(ydw),1);
     end
-
+    
     vecBD = rh\lh;
     resid = rh*vecBD - lh;
     vecB = vecBD(1:n*me);
