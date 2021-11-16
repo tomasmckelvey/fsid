@@ -1,5 +1,5 @@
 # fsid - Frequency Domain Subspace Based Identification
-FSID is an open source toolbox, implemented in the Python and Julia programming languages. The toolbox provides scripts which estimate linear multi-input multi-output 
+FSID is an open source toolbox, implemented in the Python, Julia and Matlab programming languages. The toolbox provides scripts which estimate linear multi-input multi-output 
 state-space models from sample data using frequency-domain subspace algorithms. 
 Algorithms which estimate models based on samples of the transfer function matrix 
 as well as frequency domain input and output vectors are provided. The
@@ -15,4 +15,4 @@ Python 3.0+ and Julia 1.0-1.5 and Matlab.
 The Python implementation is contained in file python/fsid.py. The
 Julia implementation reside in subfolder julia as package. The python script python/examples_fsid.py 
 illustrates the use of the toolbox. Brief documentation is provided in python/fsid_v1.pdf.
-The Matlab implementation is in folder matlab with main script gfdsid.m with example of use in example.m.
+The Matlab implementation is in folder matlab with main scripts gfdsid.m, fdsid.m and ffsid.m with example of use in example.m.

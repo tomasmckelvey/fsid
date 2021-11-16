@@ -335,7 +335,7 @@ for m=mset
         end
     end
 end
-
+disp('All tests passed')
 
 
 % $$$ for m=mset

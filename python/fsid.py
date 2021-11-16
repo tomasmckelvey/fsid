@@ -9,38 +9,84 @@ Created on Sat Dec  9 08:00:56 2017
 import numpy as np
 from scipy import linalg
 
-def lrm(u, y, n=2 , Nw=None):
+def fsid():
+    """
+    This is the FSID toolbox for Matlab version 1.3, 2021-07-14
+    
+    Functions: fdsid, gfdsid, ffsid, gffsid, lrm 
+
+    FSID is open source software licenced under the GNU GPL v.3 
+    FSID can be accessed at https://github.com/tomasmckelvey/fsid
+
+    """
+    print("FSID for python version 1.3, 2021-07-14")
+
+
+def lrm(u, y, n=2 , Nw=None, DFTindices=None, lam=0):
+    """
+        Calulates the non-parametric frequency MIMO function estimate using the Local Rational Model mathod.
+
+    Parameters
+    ----------
+    u : array
+        input samples where element u[i,j] holds the sample for time index i and input channel j 
+    y : array 
+        output samples where element y[i,j] holds the sample for time index i and input channel j 
+    n : integer
+        local rational model order (default n=2)
+    Nw :integer (optional)
+        determines local frequency window. To determine the estimate at DFT frequency index k,
+        DFT samples from index k-Nw to k+Nw are employed (with wraparound at the edges)
+        if Nw = None (default) then Nw Nw = 2*np.int(np.ceil(((m+2)*n+1.0)/2)) where m is the number of input channels 
+    DFTindices : array of integers
+        a subset of the DFT indices. The local model is inlu calculated for frequency indices in this set 
+    lam : real valued scalar. (optinal) 
+        if lam>0 then the LS-problem is augmented with parameter penalty scaled with lam*norm(R) 
+        where R is the associated regression matrix.
+        
+    Returns
+    -------
+    ff : array of frequency function estimate where element ff[k,i,j] correspond to DFT frequency index k, 
+        output index i and input index j. If DFTindices is given then ff[i,i,j] holds the frequency function 
+        estimate at DFT frequency index DFTindices[i]
+
+    """
     us = np.shape(u)
-    if np.size(us) == 1:
+    if len(us) == 1:
         m = 1
-        u = np.reshape(u,(us[0],1))
+        u = np.reshape(u,(us[0],1))       
     else:
         m = us[1]
     Nu = us[0]
     ys = np.shape(y)
-    if np.size(ys) == 1:
+    if len(ys) == 1:
         p = 1
         y = np.reshape(y,(ys[0],1))
     else:
         p = ys[1]
     Ny = ys[0]            
     if Nu != Ny:
-        print("lsim: Incorrect number of matrices in sys.")
+        print("lrm: incompatible number of time samples in u and y")
         return False  
-    if Nw == None:
-        Nw = 2*np.int(np.ceil(((m+2)*n+1.0)/2))
+    if Nw is None:
+        Nw = 2*int(np.ceil(((m+2)*n+1.0)/2))
     #print("Nw ",Nw)
-    if Nw <np.int(np.ceil(((m+2)*n+1.0)/2)):
+    if Nw <int(np.ceil(((m+2)*n+1.0)/2)):
         print("Error: Nw too small.")
         return False
     yf = np.fft.fft(y, axis=0)
     uf = np.fft.fft(u, axis=0)
-    ff = np.zeros((Ny, p, m), dtype=complex)
     R = np.vander(np.arange(-Nw,Nw+1),n+1)
+#    print("NW", Nw)
+#    print("size R", np.shape(R))
     yfe = np.vstack((yf[-Nw:,:], yf, yf[:Nw] ))
     ufe = np.vstack((uf[-Nw:,:], uf, uf[:Nw] ))
     iset = np.arange(-Nw,Nw+1)
-    for i in np.arange(Ny):
+    if DFTindices is None:
+        DFTindices = np.arange(Ny)
+#    for i in np.arange(Ny):
+    ff = np.zeros((np.size(DFTindices), p, m), dtype=complex)
+    for fi, i in enumerate(DFTindices):
         for pidx in range(p):
             # A(z) yf = B(z) uf + T(z)
             yy = yfe[Nw+i+iset,pidx]
@@ -48,16 +94,24 @@ def lrm(u, y, n=2 , Nw=None):
             RR = np.hstack((R, np.matmul(np.diag(-yy), R[:,:n])  ))
             for midx in np.flip(range(m),0):
                 RR = np.hstack((RR, np.matmul(np.diag(ufe[Nw+i+iset, midx]), R)))
-            lsans = linalg.lstsq(RR, yy)
+            if lam != 0:
+#                nc = np.size(RR,1)
+#                print(m,n,(n+1)*m+n, np.size(RR,1))
+                nc = (n+1)*(m+1)+n
+                yy1 = np.concatenate((yy, np.zeros(nc)),0)
+                RR1 = np.concatenate((RR, lam*linalg.norm(RR)*np.eye(nc)), 0)
+                lsans = linalg.lstsq(RR1, yy1)
+            else:
+                lsans = linalg.lstsq(RR, yy)
             ht = lsans[0]
             ht = np.flip(ht,0)
-            ff[i,pidx,:] = ht[:(n+1)*m:(n+1)] 
+            ff[fi,pidx,:] = ht[:(n+1)*m:(n+1)]
     #print(np.shape(RR))
     return ff
             
 def kung_realization(mp, n, q=0):
     """
-        Calulates the state-space realization (a,b,c) from Markov parameters 
+        Calulates the state-space realization `(a,b,c)` from Markov parameters 
         using Kung's relization algorithm' 
 
     Parameters
@@ -1206,7 +1260,7 @@ def lsim(sys, u, x0=0, dtype='float'):
 def fdsim(sys, u, z, xt=np.empty(0)):
     """Calculates the output given input and state-space model in Fourier domain"""
     nwu, m = np.shape(u)
-    nn = np.shape(sys)[0]
+    nn = len(sys)
     if nn == 3:
         a, b, c = sys
         p, nc = np.shape(c)
@@ -2042,8 +2096,19 @@ if __name__ == "__main__":
             ff = lrm(u,y)
             err = linalg.norm(fd-ff)/linalg.norm(fd)
             if err > 1e-3:
-                print('Unit test "lrm" failed')
-                return False        
+                print('Unit test "lrm 1" failed')
+                return False                 
+            ff = lrm(u,y, lam=1e-7)
+            err = linalg.norm(fd-ff)/linalg.norm(fd)
+            if err > 1e-3:
+                print('Unit test "lrm 2" failed')
+                return False     
+            DFTind = np.arange(10,30,2)
+            ff = lrm(u,y, DFTindices = DFTind, lam=1e-7)
+            err = linalg.norm(fd[DFTind,: , :]-ff)/linalg.norm(fd[DFTind,: , :])
+            if err > 1e-3:
+                print('Unit test "lrm 3" failed')
+                return False                 
         print('Unit test "lrm" passed')
         return True
 
@@ -2104,7 +2169,7 @@ if __name__ == "__main__":
     
 # Run the unit tests
 
-
+    fsid()
     if (unit_test_fdestim_bd()
         and unit_test_fdestim_bd_no_d()
         and unit_test_fdestim_bd_w()

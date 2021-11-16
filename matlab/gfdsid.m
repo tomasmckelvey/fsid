@@ -1,46 +1,49 @@
 function [sys, s] = gfdsid(fddata, n, q, estTrans, dtype, estimd, w)
 % function [sys, s] = gfdsid(fddata, n, q, estTrans, dtype, estimd, w)
-% $$$ Estimate a state-space model from I/O frequency data
-% $$$ 
-%    Determines the (a,b,c,d,xt) parametrers such that 
-%     sum_i || y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*[b,  xt]* [u[i, :]; z[i]] ||^2_w[i,:,:]
+%    Estimate a state-space model from vector valued I/O rational data
+%   
+%    Determines the (a,b,c,d,xt) parameters such that 
+%     sum_i || y(i,:) - d*u(i, :) + c*inv(z(i)*eye(n)-A)*[b,  xt]* [u(i, :); z(i)] ||^2_w(i,:,:)
 %     is minimized 
-%    If estrTrans=False the following problem is solved
-%     sum_i ||y[i,:] - d*u[i, :] + c*inv(z[i]*eye(n)-A)*b * u[i, :] ||^2_w[i,:,:]
+%    If estrTrans=False the following problem is solved for the (a,b,c,d) parametrers
+%     sum_i ||y(i,:) - d*u(i, :) + c*inv(z(i)*eye(n)-A)*b * u(i, :) ||^2_w(i,:,:)
 %     is minimized 
 %
-%    The weighted norm  || x ||^2_w is defined as  || w * x ||^2 where w is a square matrix such that w*w^H 
+%    The weighted norm  || x ||^2_w is defined as  || w * x ||^2 where w is a square matrix such that w*w' 
 %    is a positive definite matrix.  
-%    If the noise on y[i,:].T is a zero mean rv with covariance r[i,:,:] a BLUE estimator will be obtained if 
-%    w[i,:,:] is selected as linalg.cholesky(linalg.inv(r[i,:,:]])).T.conj()
-% $$$ 
-% $$$ Parameters
-% $$$ ==========
-% $$$ `fddata`:   a cell array with elements 
-% $$$             `fddata{1} = z` 
-% $$$                 a vector of complex scalars,
-% $$$             `fddata{2} = y`, 
-% $$$                 a matrix of the output frequency data where `y[i,:]` corresponds to `z[i]`,
-% $$$             `fddata{3} = u` 
-% $$$                 a matrix of the input frrequency data where `u[i,:]` corresponding to `z[i]`\\
-% $$$ `n`:          the model order of the ss-model\\
-% $$$ `q`:          the numer of block rows used in the intermediate matrix. Must satisfy `q>n`\\
-% $$$ *Optional*\\
-% $$$ `estTrans`:   if true, a compensation for the transient term will be estimated (default)\\
-% $$$ `type`:       if `type = 'Real'  a real valued solution `(a,b,c,d)` ...
-% $$$         is returned. (default)\\
-% $$$             if `type =  'Complex' a complex valued solution is returned.\\
-% $$$ `estimd`:     if set to False no `d` matrix is esimated and a zero ...
-% $$$         `d` matrix is returned (default is true)
-% $$$ Returns
-% $$$ =======
-% $$$ sys ;cell array
-% $$$ `sys{1} = a`:          the estimated `a` matrix  \\
-% $$$ `sys{2} = b`:          the estimated `b` matrix  \\
-% $$$ `sys{3} = c`:          the estimated `c` matrix  \\
-% $$$ `sys{4} = d`:          the estimated `d` matrix (or zero matrix if `estimd=False`)  \\
-% $$$ `sys{5} = x`:     vector of the transient compensation\\
-% $$$ `s`:          a vector of the singular values   
+%    If the noise on y(i,:) is a zero mean rv with covariance r(i,:,:) a BLUE estimator will be obtained if 
+%    w(i,:,:) is selected such that w(i,:,:)*r(i,:,:)*w(i,:,:)' = eye(p)
+%    (for example by calulating the cholesky factor of r and
+%    inverting it.)
+%  
+%  Parameters
+%  ==========
+%  fddata:   cell array with elements 
+%              fddata{1} = z 
+%                  vector of complex scalars,
+%              fddata{2} = y, 
+%                  matrix of the output vector data where y(i,:) corresponds to z(i),
+%              fddata{3} = u 
+%                  matrix of the input vector data where u(i,:) corresponding to z(i)
+%  n:          the model order of the ss-model
+%  q:          the numer of block rows used in the intermediate matrix. Must satisfy q>n
+%  Optional
+%  --------
+%  estTrans:   if true, a compensation for the transient term will be estimated (default)
+%  type:       if type = 'Real'  a real valued solution (a,b,c,d) ...
+%              is returned. (default)
+%              if type =  'Complex' a complex valued solution is returned.
+%  estimd:     if set to false no d matrix is esimated and a zero ...
+%              d matrix is returned (default is true)
+%  Returns
+%  =======
+%  sys: cell array
+%    sys{1} = a:          the estimated a matrix  
+%    sys{2} = b:          the estimated b matrix  
+%    sys{3} = c:          the estimated c matrix  
+%    sys{4} = d:          the estimated d matrix (or zero matrix if estimd=false)  
+%    sys{5} = xt:         vector of the transient compensation
+%  s:                     vector of the singular values   
     if nargin<7
         w=[];
     end
@@ -128,6 +131,7 @@ function [sys, s] = gfdsid(fddata, n, q, estTrans, dtype, estimd, w)
     c = u(1:p, 1:n);
     lh = u(1:p*(q-1), 1:n);
     rh = u(p+1:p*q, 1:n);
+    s = diag(s);
 
     a = lh\rh;
 
