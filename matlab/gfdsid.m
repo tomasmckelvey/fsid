@@ -30,9 +30,9 @@ function [sys, s] = gfdsid(fddata, n, q, estTrans, dtype, estimd, w)
 %  Optional
 %  --------
 %  estTrans:   if true, a compensation for the transient term will be estimated (default)
-%  type:       if type = 'Real'  a real valued solution (a,b,c,d) ...
+%  dtype:      if dtype = 'Real'  a real valued solution (a,b,c,d) ...
 %              is returned. (default)
-%              if type =  'Complex' a complex valued solution is returned.
+%              if dtype =  'Complex' a complex valued solution is returned.
 %  estimd:     if set to false no d matrix is esimated and a zero ...
 %              d matrix is returned (default is true)
 %  Returns

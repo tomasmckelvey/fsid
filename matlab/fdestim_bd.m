@@ -21,7 +21,7 @@ function [b, d, xt] = fdestim_bd(z, yd, ud, a, c,  estTrans, dtype, estimd, w)
 %      If the noise on y(i,:).' is a zero mean rv with covariance r(i,:,:) a BLUE estimator will be obtained if 
 %      w(i,:,:) is selected as inv(chol(r(i,:,:))') 
 %  
-%  if type=Real a real valued solution is calulated. if type = Complex 
+%  if dtype='Real' a real valued solution is calulated. if dtype = 'Complex' 
 %  the solution is complex valued
 %      
 %  Parameters
@@ -34,16 +34,16 @@ function [b, d, xt] = fdestim_bd(z, yd, ud, a, c,  estTrans, dtype, estimd, w)
 %  
 %  Optional
 %  --------  
-%  estTrans:   if set to true also an xt vector will be estimated capturing the transient effect\\
-%  type:       data type of model, either 'Real' or 'Complex'\\
+%  estTrans:   if set to true also an xt vector will be estimated capturing the transient effect
+%  dtype:       data type of model, either 'Real' or 'Complex'
 %  estimd:     if set to false no d matrix is esimated and a zero d matrix is returned
-%  w:          w(i,:,:) is weighting matrix as described above. if w = []. No weighting is used.  
+%  w:          w(i,:,:) is weighting matrix as described above. if w = [ ]. No weighting is used.  
 %  
 %  Returns 
 %  -------
-%  b:          the LS-optimal b matrix\\
-%  d:          LS-optimal d matrix  zeros matrix if estimd=false\\
-%  xt:         LS-optimal xt vector if estTrans=true\\
+%  b:          the LS-optimal b matrix
+%  d:          LS-optimal d matrix  zeros matrix if estimd=false
+%  xt:         LS-optimal xt vector if estTrans=true
 % 
 %  T. McKelvey, Nov 2020    
     
