@@ -63,3 +63,22 @@ function optimal_print(s, i, j)
         print(")")
     end
 end
+
+
+@doc raw"""
+    vander(x::AbstractVector{T}, n = length(x), rev = false)
+
+Create Vandermonde matrix.
+"""
+function vander(x::AbstractVector{T}, n = length(x), rev = false) where T<:Number
+    m = length(x)
+    V = Matrix{T}(undef, m, n)
+
+    for i in 1:m
+        for j in 1:n
+            V[i, j] = x[i]^(j-1)
+        end
+    end
+
+    return rev ? reverse(V, dims=2) : V
+end
